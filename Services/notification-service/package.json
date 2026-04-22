@@ -1,0 +1,16 @@
+{
+  "name": "notification-service",
+  "version": "1.0.0",
+  "main": "Server.js",
+  "scripts": {
+    "start": "node Server.js",
+    "dev": "nodemon Server.js"
+  },
+  "dependencies": {
+    "@smart-fuel/shared": "*",
+    "express": "^4.19.2",
+    "dotenv": "^16.4.5"
+  },
+  "private": true,
+  "type": "module"
+}

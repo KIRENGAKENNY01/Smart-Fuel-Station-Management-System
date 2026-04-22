@@ -1,0 +1,37 @@
+# Dependency directories
+node_modules/
+*/node_modules/
+
+# Environment files (MUST be ignored to keep secrets safe)
+.env
+*/.env
+.env.local
+.env.*.local
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# OS Metadata
+.DS_Store
+Thumbs.db
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build / Production
+dist/
+build/
+.next/
+
+# Coverage
+coverage/
+
+# Docker
+.docker/

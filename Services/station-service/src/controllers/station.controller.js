@@ -1,0 +1,63 @@
+import * as StationService from "../services/station.service.js";
+import { response } from "@smart-fuel/shared";
+
+export const createStation = async (req, res) => {
+  try {
+    const station = await StationService.createStation(req.body);
+    response(res, 201, "Station created successfully", station);
+  } catch (err) {
+    response(res, 400, err.message);
+  }
+};
+
+export const getNearBy = async (req, res) => {
+  try {
+    const { lat, lon, distance } = req.query;
+    if (!lat || !lon) return response(res, 400, "Latitude and Longitude are required");
+
+    const stations = await StationService.findNearbyStations(
+      parseFloat(lon),
+      parseFloat(lat),
+      distance ? parseInt(distance) : 5000
+    );
+    response(res, 200, `${stations.length} stations found nearby`, stations);
+  } catch (err) {
+    response(res, 500, err.message);
+  }
+};
+
+export const getAll = async (req, res) => {
+  try {
+    const stations = await StationService.getAllStations(req.query);
+    response(res, 200, "Stations retrieved successfully", stations);
+  } catch (err) {
+    response(res, 500, err.message);
+  }
+};
+
+export const getById = async (req, res) => {
+  try {
+    const station = await StationService.getStationById(req.params.id);
+    response(res, 200, "Station retrieved", station);
+  } catch (err) {
+    response(res, 404, err.message);
+  }
+};
+
+export const update = async (req, res) => {
+  try {
+    const station = await StationService.updateStation(req.params.id, req.body);
+    response(res, 200, "Station updated", station);
+  } catch (err) {
+    response(res, 400, err.message);
+  }
+};
+
+export const remove = async (req, res) => {
+  try {
+    const result = await StationService.deleteStation(req.params.id);
+    response(res, 200, result.message);
+  } catch (err) {
+    response(res, 404, err.message);
+  }
+};

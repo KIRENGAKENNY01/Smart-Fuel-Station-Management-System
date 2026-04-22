@@ -1,0 +1,29 @@
+{
+  "name": "smart-fuel-station-management-system",
+  "workspaces": [
+    "Services/*",
+    "api-gateway",
+    "frontend",
+    "shared"
+  ],
+  "version": "1.0.0",
+  "description": "API Gateway for Smart Fuel Station Management System",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently \"npm run dev:auth\" \"npm run dev:gateway\"",
+    "dev:auth": "npm run dev -w Services/auth-service",
+    "dev:gateway": "npm run dev -w api-gateway",
+    "dev:user": "npm run dev -w Services/user-service"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.1.14"
+  }
+}
