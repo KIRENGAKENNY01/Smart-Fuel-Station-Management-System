@@ -12,7 +12,9 @@ export const createTransaction = async (req, res) => {
     const transaction = await TransactionService.processPayment(transactionData);
     response(res, 201, "Transaction completed", transaction);
   } catch (err) {
-    response(res, 400, err.message);
+    console.error("Transaction Error:", err.response?.data || err);
+    const errorMessage = err.response?.data?.message || err.message || "Unknown error occurred";
+    response(res, 400, errorMessage);
   }
 };
 

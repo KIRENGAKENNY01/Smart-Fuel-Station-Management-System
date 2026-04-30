@@ -28,12 +28,30 @@ export const getAllPrices = async (req, res) => {
   }
 };
 
-// Internal-only endpoint for transaction service
+export const getStationPrices = async (req, res) => {
+  try {
+    const prices = await FuelService.getPricesByStation(req.params.stationId);
+    response(res, 200, "Station prices retrieved", prices);
+  } catch (err) {
+    response(res, 500, err.message);
+  }
+};
+
 export const updateInventory = async (req, res) => {
   try {
     const { station_id, fuel_type_id, amount, operation } = req.body;
     const inventory = await FuelService.updateStock(station_id, fuel_type_id, amount, operation);
     response(res, 200, "Inventory updated", inventory);
+  } catch (err) {
+    response(res, 400, err.message);
+  }
+};
+
+export const changePrice = async (req, res) => {
+  try {
+    const { station_id, fuel_type_id, price } = req.body;
+    const inventory = await FuelService.updatePrice(station_id, fuel_type_id, price);
+    response(res, 200, "Price updated successfully", inventory);
   } catch (err) {
     response(res, 400, err.message);
   }

@@ -14,10 +14,14 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently \"npm run dev:auth\" \"npm run dev:gateway\"",
+    "dev": "concurrently \"npm:dev:*\"",
     "dev:auth": "npm run dev -w Services/auth-service",
     "dev:gateway": "npm run dev -w api-gateway",
-    "dev:user": "npm run dev -w Services/user-service"
+    "dev:station": "npm run dev -w Services/station-service",
+    "dev:fuel": "npm run dev -w Services/fuel-service",
+    "dev:transaction": "npm run dev -w Services/transaction-service",
+    "dev:frontend": "npm run dev -w frontend",
+    "seed": "node seed.mjs"
   },
   "keywords": [],
   "author": "",

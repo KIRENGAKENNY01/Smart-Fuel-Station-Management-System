@@ -1,15 +1,12 @@
 import mongoose from "mongoose"
 
-
 const fuelReportSchema = new mongoose.Schema({
     station_id:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:"Station",
         required:true
     },
     fuel_type_id:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:"FuelType",
         required:true
     },
     total_liters_sold:{
@@ -30,4 +27,4 @@ const fuelReportSchema = new mongoose.Schema({
     }
 })
 
-export default mongoose.model("FuelReport",fuelReportSchema)
+export default mongoose.model("FuelReport", fuelReportSchema)

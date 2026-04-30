@@ -1,19 +1,16 @@
 import mongoose from "mongoose"
 
 const transactionSchema = new mongoose.Schema({
-        fuel_type_id:{
+    fuel_type_id:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:"FuelType",
         required:true
     },
     station_id:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:"Station",
         required:true
     },
     driver_id:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:"User",
         required:true
     },
     amount:{

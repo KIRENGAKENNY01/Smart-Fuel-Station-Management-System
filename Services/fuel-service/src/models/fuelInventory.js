@@ -9,7 +9,6 @@ const fuelInventorySchema= new mongoose.Schema({
     },
     station_id:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:"Station",
         required:true
     },
     available_liters:{
@@ -22,8 +21,9 @@ const fuelInventorySchema= new mongoose.Schema({
     },
     max_capacity: {
          type: Number, 
-         required: true
-         },
+         required: true,
+         default: 10000
+    },
 
     low_stock_threshold: { 
         type: Number, 

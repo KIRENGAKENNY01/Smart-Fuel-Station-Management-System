@@ -19,16 +19,24 @@ const FUEL_SERVICE = process.env.FUEL_SERVICE_URL || "http://localhost:5003";
 const TRANSACTION_SERVICE = process.env.TRANSACTION_SERVICE_URL || "http://localhost:5004";
 
 // Auth
-app.use("/api/auth", proxy(AUTH_SERVICE));
+app.use("/api/auth", proxy(AUTH_SERVICE, { 
+    proxyReqPathResolver: (req) => req.originalUrl 
+}));
 
 // Stations
-app.use("/api/stations", proxy(STATION_SERVICE));
+app.use("/api/stations", proxy(STATION_SERVICE, { 
+    proxyReqPathResolver: (req) => req.originalUrl 
+}));
 
 // Fuel
-app.use("/api/fuel", proxy(FUEL_SERVICE));
+app.use("/api/fuel", proxy(FUEL_SERVICE, { 
+    proxyReqPathResolver: (req) => req.originalUrl 
+}));
 
 // Transactions
-app.use("/api/transactions", proxy(TRANSACTION_SERVICE));
+app.use("/api/transactions", proxy(TRANSACTION_SERVICE, { 
+    proxyReqPathResolver: (req) => req.originalUrl 
+}));
 
 // Health Check
 app.get("/health", (req, res) => {

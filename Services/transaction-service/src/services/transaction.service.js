@@ -2,12 +2,30 @@ import Transaction from "../models/transaction.model.js";
 import axios from "axios";
 
 export const processPayment = async (data) => {
-  // 1. In a real system, you'd call a Mobile Money / Card API here.
+  // 1. Fetch current price from fuel-service
+  const pricesRes = await axios.get(`http://localhost:5003/api/fuel/prices`);
+  const prices = pricesRes.data.data || pricesRes.data; // Handle the response format safely
+
+  // Find the exact fuel inventory for this station and fuel type
+  const fuelInfo = prices.find(p => 
+    String(p.station_id) === String(data.station_id) && 
+    String(p.fuel_type_id) === String(data.fuel_type_id)
+  );
+
+  if (!fuelInfo) {
+    throw new Error("Fuel inventory not found for this station and fuel type");
+  }
+
+  // Calculate the total amount based on requested liters and real-time price
+  const amount = data.liters * fuelInfo.price_per_liter;
+
+  // In a real system, you'd call a Mobile Money / Card API here.
   // We will assume the payment was successful.
 
   // 2. Create the transaction record
   const transaction = await Transaction.create({
     ...data,
+    amount,
     status: 'COMPLETED'
   });
 

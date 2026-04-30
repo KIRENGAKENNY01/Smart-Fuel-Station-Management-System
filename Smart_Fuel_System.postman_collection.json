@@ -1,0 +1,140 @@
+{
+	"info": {
+		"name": "Smart Fuel Station Management System",
+		"description": "Complete API suite for Auth, Stations, Fuel, and Transactions.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@fuel.com\",\n    \"password\": \"Pass123!\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "http://localhost:5000/api/auth/login", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "auth", "login"] }
+					}
+				},
+				{
+					"name": "Signup",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"full_name\": \"John Doe\",\n    \"email\": \"john@example.com\",\n    \"password\": \"Pass123!\",\n    \"role\": \"DRIVER\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "http://localhost:5000/api/auth/signup", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "auth", "signup"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Stations",
+			"item": [
+				{
+					"name": "Get Nearby Stations",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:5000/api/stations/nearby?lat=-1.9441&lon=30.0619&distance=5000",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "5000",
+							"path": ["api", "stations", "nearby"],
+							"query": [
+								{ "key": "lat", "value": "-1.9441" },
+								{ "key": "lon", "value": "30.0619" },
+								{ "key": "distance", "value": "5000" }
+							]
+						}
+					}
+				},
+				{
+					"name": "List All Stations",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "http://localhost:5000/api/stations", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "stations"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Fuel & Inventory",
+			"item": [
+				{
+					"name": "Get All Prices",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "http://localhost:5000/api/fuel/prices", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "fuel", "prices"] }
+					}
+				},
+				{
+					"name": "Update Price (Manager Only)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer PASTE_TOKEN_HERE", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"station_id\": \"STATION_ID\",\n    \"fuel_type_id\": \"FUEL_ID\",\n    \"price\": 1580\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "http://localhost:5000/api/fuel/price", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "fuel", "price"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Transactions",
+			"item": [
+				{
+					"name": "Make Fuel Payment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer PASTE_TOKEN_HERE", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"station_id\": \"STATION_ID\",\n    \"fuel_type_id\": \"FUEL_ID\",\n    \"amount\": 15000,\n    \"liters\": 10\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "http://localhost:5000/api/transactions", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "transactions"] }
+					}
+				},
+				{
+					"name": "My Transaction History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer PASTE_TOKEN_HERE", "type": "text" }
+						],
+						"url": { "raw": "http://localhost:5000/api/transactions/history", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "transactions", "history"] }
+					}
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [ { "key": "token", "value": "{{accessToken}}", "type": "string" } ]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": { "type": "text/javascript", "exec": [""] }
+		}
+	]
+}
