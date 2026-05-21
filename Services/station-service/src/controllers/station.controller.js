@@ -61,3 +61,22 @@ export const remove = async (req, res) => {
     response(res, 404, err.message);
   }
 };
+
+export const assignManager = async (req, res) => {
+  try {
+    const { managerId } = req.body;
+    if (!managerId) return response(res, 400, "managerId is required");
+    const station = await StationService.assignManager(req.params.id, managerId);
+    try {
+      const axios = (await import("axios")).default;
+      await axios.put(`http://localhost:5001/api/auth/users/internal/${managerId}/station`, {
+        station_id: req.params.id,
+      });
+    } catch (e) {
+      console.error("Failed to sync manager station_id:", e.message);
+    }
+    response(res, 200, "Manager assigned to station", station);
+  } catch (err) {
+    response(res, 400, err.message);
+  }
+};

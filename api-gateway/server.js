@@ -17,6 +17,8 @@ const AUTH_SERVICE = process.env.AUTH_SERVICE_URL || "http://localhost:5001";
 const STATION_SERVICE = process.env.STATION_SERVICE_URL || "http://localhost:5002";
 const FUEL_SERVICE = process.env.FUEL_SERVICE_URL || "http://localhost:5003";
 const TRANSACTION_SERVICE = process.env.TRANSACTION_SERVICE_URL || "http://localhost:5004";
+const REPORT_SERVICE = process.env.REPORT_SERVICE_URL || "http://localhost:5005";
+const NOTIFICATION_SERVICE = process.env.NOTIFICATION_SERVICE_URL || "http://localhost:5006";
 
 // Auth
 app.use("/api/auth", proxy(AUTH_SERVICE, { 
@@ -36,6 +38,16 @@ app.use("/api/fuel", proxy(FUEL_SERVICE, {
 // Transactions
 app.use("/api/transactions", proxy(TRANSACTION_SERVICE, { 
     proxyReqPathResolver: (req) => req.originalUrl 
+}));
+
+// Reports
+app.use("/api/reports", proxy(REPORT_SERVICE, {
+    proxyReqPathResolver: (req) => req.originalUrl
+}));
+
+// Notifications
+app.use("/api/notifications", proxy(NOTIFICATION_SERVICE, {
+    proxyReqPathResolver: (req) => req.originalUrl
 }));
 
 // Health Check

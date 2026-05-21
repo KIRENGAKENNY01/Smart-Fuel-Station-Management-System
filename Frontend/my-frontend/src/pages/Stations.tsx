@@ -1,62 +1,106 @@
 import PageLayout from '../components/PageLayout';
-import { MapPin, Search } from 'lucide-react';
+import { MapPin, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { StationService } from '../services/api';
+import { StationService, AuthService } from '../services/api';
+import TransactionDataTable from '../components/TransactionDataTable';
 
 export default function Stations() {
   const [stations, setStations] = useState<any[]>([]);
+  const [managers, setManagers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [form, setForm] = useState({ name: '', latitude: '', longitude: '', manager_id: '' });
 
-  useEffect(() => {
-    StationService.getAll()
-      .then(res => {
-        console.log("✅ [Stations] Fetched all stations successfully:", res.data);
-        setStations(res.data.data || []);
-      })
-      .catch(err => {
-        console.error("❌ [Stations] Error fetching stations:", err.response?.data || err.message);
+  const load = () => {
+    setLoading(true);
+    Promise.all([StationService.getAll(), AuthService.listUsers()])
+      .then(([s, u]) => {
+        setStations(s.data.data || []);
+        setManagers((u.data.data || []).filter((x: { role: string }) => x.role === 'MANAGER'));
       })
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const filtered = stations.filter((s) => s.name?.toLowerCase().includes(search.toLowerCase()));
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const body = {
+      name: form.name,
+      latitude: parseFloat(form.latitude),
+      longitude: parseFloat(form.longitude),
+      manager_id: form.manager_id,
+    };
+    try {
+      if (editing) {
+        await StationService.update(editing._id, body);
+        if (form.manager_id) await StationService.assignManager(editing._id, form.manager_id);
+      } else {
+        await StationService.create(body);
+      }
+      setShowForm(false);
+      setEditing(null);
+      load();
+    } catch (err: unknown) {
+      alert((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed');
+    }
+  };
+
+  const columns = [
+    { id: 'name', label: 'Station', render: (v: string) => <span className="font-bold">{v}</span> },
+    { id: 'status', label: 'Status', render: (v: string) => <span className="text-xs font-bold uppercase">{v || 'ACTIVE'}</span> },
+    {
+      id: 'location',
+      label: 'Coordinates',
+      render: (_: unknown, row: { latitude?: number; longitude?: number }) => (
+        <span className="font-mono text-xs opacity-70">
+          {row.latitude?.toFixed(4)}, {row.longitude?.toFixed(4)}
+        </span>
+      ),
+    },
+    {
+      id: '_id',
+      label: 'Actions',
+      render: (id: string, row: any) => (
+        <div className="flex gap-2">
+          <button type="button" className="text-primary-500 text-xs font-bold" onClick={() => { setEditing(row); setForm({ name: row.name, latitude: String(row.latitude), longitude: String(row.longitude), manager_id: row.manager_id || '' }); setShowForm(true); }}>Edit</button>
+          <button type="button" className="text-danger text-xs font-bold" onClick={async () => { if (confirm('Delete station?')) { await StationService.remove(id); load(); } }}>Delete</button>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <PageLayout title="Stations" description="Manage all fuel stations in the network">
-      <div className="flex justify-between items-center mb-6">
-        <div className="relative max-w-md w-full">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text-muted">
-            <Search className="w-5 h-5" />
+    <PageLayout
+      title="Fuel Station Management"
+      description="Register stations, update info, assign managers"
+      actions={
+        <button type="button" onClick={() => { setEditing(null); setForm({ name: '', latitude: '-1.9441', longitude: '30.0619', manager_id: '' }); setShowForm(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-primary-500 text-primary-900 font-black rounded-2xl">
+          <Plus className="w-4 h-4" /> Add Station
+        </button>
+      }
+    >
+      {showForm && (
+        <form onSubmit={submit} className="glass-card p-6 mb-8 grid md:grid-cols-2 gap-4">
+          <input className="glass-input" placeholder="Station name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <select className="glass-input" value={form.manager_id} onChange={(e) => setForm({ ...form, manager_id: e.target.value })} required>
+            <option value="">Assign manager</option>
+            {managers.map((m) => <option key={m._id} value={m._id}>{m.full_name}</option>)}
+          </select>
+          <input className="glass-input" placeholder="Latitude" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} required />
+          <input className="glass-input" placeholder="Longitude" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} required />
+          <div className="md:col-span-2 flex gap-2">
+            <button type="submit" className="px-6 py-2 bg-primary-500 text-primary-900 font-bold rounded-lg">Save</button>
+            <button type="button" onClick={() => setShowForm(false)} className="px-6 py-2 border rounded-lg">Cancel</button>
           </div>
-          <input type="text" className="glass-input w-full pl-10" placeholder="Search stations..." />
-        </div>
-        <button className="px-4 py-2 bg-primary-500 text-primary-900 font-medium rounded-lg">Add Station</button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {loading ? (
-          <p className="text-text-muted col-span-3">Loading stations...</p>
-        ) : stations.length === 0 ? (
-          <p className="text-text-muted col-span-3">No stations registered yet.</p>
-        ) : (
-          stations.map((station: any) => (
-            <div key={station._id} className="glass-card flex flex-col gap-4">
-              <div className="flex justify-between items-start">
-                <div className="p-3 bg-primary-500/10 text-primary-900 dark:text-primary-500 rounded-lg">
-                  <MapPin className="w-6 h-6" />
-                </div>
-                <span className="px-2 py-1 bg-primary-500/20 text-primary-900 dark:text-primary-500 rounded text-xs font-medium">Active</span>
-              </div>
-              <div>
-                <h3 className="font-bold text-lg">{station.name}</h3>
-                <p className="text-text-muted text-sm mt-1">Location: {station.location?.coordinates?.join(', ') || 'Kigali, Rwanda'}</p>
-              </div>
-              <div className="pt-4 border-t border-black/5 dark:border-white/10 flex justify-between">
-                <button className="text-sm font-medium text-primary-500 hover:text-primary-600">View Details</button>
-                <button className="text-sm font-medium text-primary-500 hover:text-primary-600">Edit</button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+        </form>
+      )}
+      <input className="glass-input max-w-sm mb-6" placeholder="Search stations…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      <TransactionDataTable columns={columns} data={filtered} loading={loading} />
     </PageLayout>
   );
 }

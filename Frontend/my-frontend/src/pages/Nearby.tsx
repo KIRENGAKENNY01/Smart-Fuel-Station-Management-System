@@ -1,104 +1,166 @@
 import PageLayout from '../components/PageLayout';
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Activity, Zap, Droplet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { StationService, FuelService } from '../services/api';
+import ProCard from '../components/ProCard';
+import TransactionDataTable from '../components/TransactionDataTable';
+import { fuelTypeLabel } from '../utils/format';
+import axios from 'axios';
+
+const GEOAPIFY_API_KEY = "a42cdc1077d542239ac98d3e485a0865";
 
 export default function Nearby() {
-  const [stations, setStations] = useState<any[]>([]);
+  const [nearbyStations, setNearbyStations] = useState<any[]>([]);
+  const [allStations, setAllStations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchAddress = async (lat: number, lon: number) => {
+    try {
+      const response = await axios.get(`https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lon}&apiKey=${GEOAPIFY_API_KEY}`);
+      const properties = response.data.features[0]?.properties || {};
+      
+      return {
+        formatted_address: properties.formatted || "Address unavailable",
+        district: properties.city || properties.county || "N/A",
+        sector: properties.suburb || properties.district || "N/A"
+      };
+    } catch (err) {
+      return { formatted_address: "Address unavailable", district: "N/A", sector: "N/A" };
+    }
+  };
+
   useEffect(() => {
-    // Default Kigali coordinates
-    const lat = -1.9441;
-    const lng = 30.0619;
-    
-    StationService.getNearby(lat, lng, 10000)
-      .then(async (res) => {
-        const stationsData = res.data.data || [];
-        console.log(`✅ [Nearby] Fetched ${stationsData.length} nearby stations:`, stationsData);
-        
-        // Fetch prices for each station
-        const stationsWithPrices = await Promise.all(
-          stationsData.map(async (st: any) => {
-            try {
-              const priceRes = await FuelService.getStationPrices(st._id);
-              console.log(`✅ [Nearby] Fetched prices for station ${st.name}:`, priceRes.data);
-              st.prices = priceRes.data.data || [];
-            } catch (err: any) {
-              console.warn(`⚠️ [Nearby] Could not fetch prices for station ${st.name}:`, err.response?.data || err.message);
-              st.prices = [];
-            }
-            return st;
-          })
-        );
-        setStations(stationsWithPrices);
-      })
-      .catch(err => {
-        console.error("❌ [Nearby] Error fetching nearby stations:", err.response?.data || err.message);
-      })
-      .finally(() => setLoading(false));
+    const fetchStations = async () => {
+      setLoading(true);
+      try {
+        const [nearbyRes, allRes] = await Promise.all([
+          StationService.getNearby(-1.9441, 30.0619, 5000),
+          StationService.getAll()
+        ]);
+
+        const enrich = async (data: any[]) => Promise.all(data.map(async (st: any) => {
+          const prices = await FuelService.getStationPrices(st.stationId || st._id).then(r => r.data.data).catch(() => []);
+          const address = await fetchAddress(st.latitude || st.location?.coordinates[1], st.longitude || st.location?.coordinates[0]);
+          return { ...st, prices, addressInfo: address };
+        }));
+
+        const [enrichedNearby, enrichedAll] = await Promise.all([
+          enrich(nearbyRes.data.data || []),
+          enrich(allRes.data.data || [])
+        ]);
+
+        setNearbyStations(enrichedNearby);
+        setAllStations(enrichedAll);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStations();
   }, []);
 
-  return (
-    <PageLayout title="Nearby Stations" description="Find fuel stations around your current location">
-      <div className="glass-card">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="font-semibold text-lg">Stations near you</h3>
+  const nearbyColumns = [
+    { 
+      id: 'name', 
+      label: 'Station Details',
+      render: (val: string, row: any) => (
+        <div className="flex items-center gap-3 py-2">
+          <div className="w-10 h-10 rounded-xl bg-primary-500/10 flex items-center justify-center text-primary-500">
+            <MapPin className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="font-bold">{val}</p>
+            <p className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">
+              {typeof row.distance === 'number' ? `${row.distance.toFixed(2)} km away` : 'Near you'}
+            </p>
+          </div>
         </div>
+      )
+    },
+    { 
+      id: 'activeStatus', 
+      label: 'Status',
+      render: (val: string) => (
+        <div className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full ${val === 'ACTIVE' ? 'bg-primary-500 animate-pulse' : 'bg-[var(--text-secondary)]'}`}></span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider">{val || 'Active'}</span>
+        </div>
+      )
+    },
+    { 
+      id: 'addressInfo', 
+      label: 'Location Info',
+      render: (val: any) => (
+        <div className="max-w-[200px]">
+          <p className="text-[11px] font-medium leading-tight line-clamp-1">{val?.formatted_address}</p>
+          <p className="text-[9px] font-bold text-primary-500 uppercase mt-0.5">{val?.district} • {val?.sector}</p>
+        </div>
+      )
+    },
+    { 
+      id: 'prices', 
+      label: 'Fuel & Pricing',
+      render: (prices: any[]) => (
+        <div className="flex gap-2">
+          {prices.map((p, idx) => (
+            <div key={idx} className="bg-[var(--surface-base)] border border-[var(--border-base)] rounded-lg px-2 py-1 flex flex-col items-center">
+              <span className="text-[8px] font-bold text-[var(--text-secondary)] uppercase">{fuelTypeLabel(p)}</span>
+              <span className="text-[10px] font-black text-primary-500">{p.pricePerLiter || p.price_per_liter}</span>
+            </div>
+          ))}
+        </div>
+      )
+    }
+  ];
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="text-text-muted text-sm border-b border-black/5 dark:border-white/10">
-                <th className="pb-3 font-medium px-2">Station Name</th>
-                <th className="pb-3 font-medium">Distance</th>
-                <th className="pb-3 font-medium">Available Fuel & Price</th>
-                <th className="pb-3 font-medium text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm">
-              {loading ? (
-                <tr><td colSpan={4} className="py-8 text-center text-text-muted">Locating nearby stations...</td></tr>
-              ) : stations.length === 0 ? (
-                <tr><td colSpan={4} className="py-8 text-center text-text-muted">No stations found nearby.</td></tr>
-              ) : (
-                stations.map((station, i) => (
-                  <tr key={station._id} className={i % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}>
-                    <td className="py-4 font-medium px-2 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center text-primary-900 dark:text-primary-500">
-                        <MapPin className="w-4 h-4" />
-                      </div>
-                      {station.name}
-                    </td>
-                    <td className="py-4 text-text-muted">
-                      {station.distance ? `${station.distance.toFixed(2)} km` : 'Unknown'}
-                    </td>
-                    <td className="py-4">
-                      {station.prices && station.prices.length > 0 ? (
-                        <div className="flex flex-col gap-1">
-                          {station.prices.map((p: any) => (
-                            <span key={p._id} className="text-xs font-medium bg-black/5 dark:bg-white/10 px-2 py-1 rounded inline-block w-fit">
-                              {p.fuel_type_id?.name || 'Fuel'}: {p.price_per_liter} RWF
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-text-muted text-xs">No price data</span>
-                      )}
-                    </td>
-                    <td className="py-4 text-right">
-                      <button className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-500/10 text-primary-900 dark:text-primary-500 hover:bg-primary-500/20 rounded-lg text-xs font-medium transition-colors">
-                        <Navigation className="w-3 h-3" />
-                        Navigate
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+  const allColumns = [
+    { id: 'name', label: 'Station Name' },
+    { 
+      id: 'addressInfo', 
+      label: 'Location',
+      render: (val: any) => <span className="text-[12px]">{val?.district}, {val?.sector}</span>
+    },
+    {
+      id: 'fuelTypes',
+      label: 'Fuel Options',
+      render: (types: string[]) => (
+        <div className="flex gap-1">
+          {types?.map((t, idx) => (
+            <span key={idx} className="text-[9px] font-bold bg-primary-500/10 text-primary-500 px-2 py-0.5 rounded uppercase">{t}</span>
+          ))}
         </div>
+      )
+    }
+  ];
+
+  return (
+    <PageLayout title="Discover Stations" description="Find fuel stations around your current location">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <ProCard title="Stations Nearby" value={nearbyStations.length} subtitle="Within 5km radius" icon={MapPin} variant="primary" />
+        <ProCard title="Best Price" value="1,600 RWF" subtitle="Petrol - Downtown" icon={Zap} variant="secondary" />
+        <ProCard title="Active Network" value={allStations.length} subtitle="City-wide coverage" icon={Activity} variant="accent" />
+      </div>
+
+      <div className="space-y-16">
+        <section>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold text-xl">Stations Near You</h3>
+            <span className="text-[10px] font-bold text-primary-500 uppercase tracking-widest bg-primary-500/10 px-3 py-1 rounded-full">Live Updates</span>
+          </div>
+          <TransactionDataTable columns={nearbyColumns} data={nearbyStations} loading={loading} />
+        </section>
+
+        <section>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold text-xl">All Network Stations</h3>
+          </div>
+          <TransactionDataTable columns={allColumns} data={allStations} loading={loading} />
+        </section>
       </div>
     </PageLayout>
   );
 }
+
+
+

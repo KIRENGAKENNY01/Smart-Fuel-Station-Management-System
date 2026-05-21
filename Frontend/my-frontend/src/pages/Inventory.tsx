@@ -1,73 +1,136 @@
 import PageLayout from '../components/PageLayout';
 import { Droplet, AlertTriangle } from 'lucide-react';
-import { stats } from '../data/mockData';
+import { useEffect, useState } from 'react';
+import { FuelService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { fuelTypeLabel } from '../utils/format';
 
 export default function Inventory() {
-  const inventoryLevel = stats.manager.inventory;
+  const { stationId } = useAuth();
+  const sid = stationId || localStorage.getItem('stationId') || '';
+  const [items, setItems] = useState<any[]>([]);
+  const [supplyForm, setSupplyForm] = useState({ fuel_type_id: '', liters_added: '' });
+  const [priceForm, setPriceForm] = useState({ fuel_type_id: '', price: '' });
+
+  const load = async () => {
+    if (!sid) return;
+    const res = await FuelService.getInventory(sid);
+    setItems(res.data.data || []);
+  };
+
+  useEffect(() => {
+    load();
+  }, [sid]);
+
+  const addStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await FuelService.addSupply({
+      station_id: sid,
+      fuel_type_id: supplyForm.fuel_type_id,
+      liters_added: parseFloat(supplyForm.liters_added),
+    });
+    setSupplyForm({ fuel_type_id: '', liters_added: '' });
+    load();
+  };
+
+  const updatePrice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await FuelService.updatePrice({
+      station_id: sid,
+      fuel_type_id: priceForm.fuel_type_id,
+      price: parseFloat(priceForm.price),
+    });
+    load();
+  };
 
   return (
-    <PageLayout title="Fuel Inventory" description="Real-time monitoring of station fuel levels">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="glass-card flex flex-col gap-6">
-          <div className="flex justify-between items-center">
-            <h3 className="font-semibold text-lg">Main Underground Tank</h3>
-            <div className="p-2 bg-primary-500/10 text-primary-900 dark:text-primary-500 rounded-lg"><Droplet className="w-5 h-5" /></div>
-          </div>
-          
-          <div className="flex flex-col items-center justify-center py-8">
-            <div className="relative w-48 h-48 rounded-full border-4 border-black/5 dark:border-white/10 flex items-center justify-center overflow-hidden bg-white/50 dark:bg-black/20">
-              {/* Fake liquid level */}
-              <div 
-                className="absolute bottom-0 w-full bg-primary-500/80 transition-all duration-1000 ease-in-out" 
-                style={{ height: `${inventoryLevel}%` }}
-              ></div>
-              <div className="relative z-10 text-center">
-                <span className="text-4xl font-bold">{inventoryLevel}%</span>
-                <p className="text-sm font-medium mt-1">Full</p>
+    <PageLayout title="Fuel Inventory" description="Add stock and update prices">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {items.map((inv: any) => {
+          const pct = inv.max_capacity
+            ? Math.round((inv.available_liters / inv.max_capacity) * 100)
+            : 50;
+          const low = inv.available_liters < (inv.low_stock_threshold || 500);
+          return (
+            <div key={inv._id} className={`glass-card p-6 ${low ? 'border-danger/30' : ''}`}>
+              <div className="flex justify-between mb-4">
+                <h3 className="font-bold">{fuelTypeLabel(inv.fuel_type_id)}</h3>
+                {low ? (
+                  <AlertTriangle className="w-5 h-5 text-danger" />
+                ) : (
+                  <Droplet className="w-5 h-5 text-primary-500" />
+                )}
+              </div>
+              <p className="text-3xl font-black">{inv.available_liters?.toLocaleString()} L</p>
+              <p className="text-sm text-text-muted mt-1">
+                {inv.price_per_liter?.toLocaleString()} RWF/L · {pct}% capacity
+              </p>
+              <div className="w-full h-2 bg-black/10 rounded-full mt-4">
+                <div
+                  className={`h-2 rounded-full ${low ? 'bg-danger' : 'bg-primary-500'}`}
+                  style={{ width: `${Math.min(pct, 100)}%` }}
+                />
               </div>
             </div>
-          </div>
+          );
+        })}
+      </div>
 
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-text-muted">Capacity</span>
-              <span className="font-medium">50,000 L</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-text-muted">Current Volume</span>
-              <span className="font-medium">{50000 * (inventoryLevel / 100)} L</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-text-muted">Status</span>
-              <span className="text-primary-500 font-medium">Optimal</span>
-            </div>
-          </div>
-          
-          <button className="w-full py-3 bg-white/10 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg font-medium hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-            Request Delivery
+      <div className="grid md:grid-cols-2 gap-6 max-w-3xl">
+        <form onSubmit={addStock} className="glass-card p-6 space-y-3">
+          <h4 className="font-bold">Add fuel stock</h4>
+          <select
+            className="glass-input w-full"
+            value={supplyForm.fuel_type_id}
+            onChange={(e) => setSupplyForm({ ...supplyForm, fuel_type_id: e.target.value })}
+            required
+          >
+            <option value="">Fuel type</option>
+            {items.map((i) => (
+              <option key={i._id} value={i.fuel_type_id?._id || i.fuel_type_id}>
+                {fuelTypeLabel(i.fuel_type_id)}
+              </option>
+            ))}
+          </select>
+          <input
+            className="glass-input w-full"
+            type="number"
+            placeholder="Liters to add"
+            value={supplyForm.liters_added}
+            onChange={(e) => setSupplyForm({ ...supplyForm, liters_added: e.target.value })}
+            required
+          />
+          <button type="submit" className="w-full py-2 bg-primary-500 text-primary-900 font-bold rounded-lg">
+            Add supply
           </button>
-        </div>
-
-        <div className="glass-card border-danger/20 flex flex-col gap-6">
-          <div className="flex justify-between items-center">
-            <h3 className="font-semibold text-lg">Reserve Tank</h3>
-            <div className="p-2 bg-danger/10 text-danger rounded-lg"><AlertTriangle className="w-5 h-5" /></div>
-          </div>
-          
-          <div className="flex flex-col items-center justify-center py-8">
-            <div className="relative w-48 h-48 rounded-full border-4 border-black/5 dark:border-white/10 flex items-center justify-center overflow-hidden bg-white/50 dark:bg-black/20">
-              <div className="absolute bottom-0 w-full bg-danger/80 transition-all duration-1000" style={{ height: '15%' }}></div>
-              <div className="relative z-10 text-center">
-                <span className="text-4xl font-bold text-danger">15%</span>
-                <p className="text-sm font-medium mt-1">Critical</p>
-              </div>
-            </div>
-          </div>
-
-          <button className="w-full mt-auto py-3 bg-danger text-white font-medium rounded-lg hover:bg-danger/90 transition-colors">
-            Emergency Refill
+        </form>
+        <form onSubmit={updatePrice} className="glass-card p-6 space-y-3">
+          <h4 className="font-bold">Update price</h4>
+          <select
+            className="glass-input w-full"
+            value={priceForm.fuel_type_id}
+            onChange={(e) => setPriceForm({ ...priceForm, fuel_type_id: e.target.value })}
+            required
+          >
+            <option value="">Fuel type</option>
+            {items.map((i) => (
+              <option key={i._id} value={i.fuel_type_id?._id || i.fuel_type_id}>
+                {fuelTypeLabel(i.fuel_type_id)}
+              </option>
+            ))}
+          </select>
+          <input
+            className="glass-input w-full"
+            type="number"
+            placeholder="RWF per liter"
+            value={priceForm.price}
+            onChange={(e) => setPriceForm({ ...priceForm, price: e.target.value })}
+            required
+          />
+          <button type="submit" className="w-full py-2 border font-bold rounded-lg">
+            Update price
           </button>
-        </div>
+        </form>
       </div>
     </PageLayout>
   );

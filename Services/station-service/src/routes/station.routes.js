@@ -13,5 +13,7 @@ router.get("/:id", StationController.getById);
 router.post("/",authMiddleware, authorize([Roles.ADMIN]), StationController.createStation)
 router.put("/:id", authMiddleware, authorize([Roles.ADMIN]), StationController.update);
 router.delete("/:id", authMiddleware, authorize([Roles.ADMIN]), StationController.remove);
+router.patch("/:id/assign-manager", authMiddleware, authorize([Roles.ADMIN]), StationController.assignManager);
+router.patch("/internal/:id/assign-manager", StationController.assignManager);
 
 export default router;

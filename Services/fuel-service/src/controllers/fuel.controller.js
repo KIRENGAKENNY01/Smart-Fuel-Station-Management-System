@@ -19,6 +19,15 @@ export const addSupply = async (req, res) => {
   }
 };
 
+export const getFuelTypes = async (req, res) => {
+  try {
+    const types = await FuelService.getAllFuelTypes();
+    response(res, 200, "Fuel types retrieved", types);
+  } catch (err) {
+    response(res, 500, err.message);
+  }
+};
+
 export const getAllPrices = async (req, res) => {
   try {
     const prices = await FuelService.getPrices();
@@ -30,7 +39,14 @@ export const getAllPrices = async (req, res) => {
 
 export const getStationPrices = async (req, res) => {
   try {
-    const prices = await FuelService.getPricesByStation(req.params.stationId);
+    const rawPrices = await FuelService.getPricesByStation(req.params.stationId);
+    const prices = rawPrices.map(p => ({
+      fuelTypeId: p.fuel_type_id?._id || p.fuel_type_id,
+      fuelType: p.fuel_type_id?.fuelTypes || p.fuel_type_id?.name || "Fuel",
+      pricePerLiter: p.price_per_liter,
+      availableLiters: p.available_liters,
+      lastUpdated: p.updated_at || Date.now()
+    }));
     response(res, 200, "Station prices retrieved", prices);
   } catch (err) {
     response(res, 500, err.message);
@@ -54,5 +70,27 @@ export const changePrice = async (req, res) => {
     response(res, 200, "Price updated successfully", inventory);
   } catch (err) {
     response(res, 400, err.message);
+  }
+};
+
+export const setStockLevel = async (req, res) => {
+  try {
+    const { station_id, fuel_type_id, liters } = req.body;
+    const inventory = await FuelService.setStockLevel(station_id, fuel_type_id, liters);
+    response(res, 200, "Fuel level updated", inventory);
+  } catch (err) {
+    response(res, 400, err.message);
+  }
+};
+
+export const getPriceTrend = async (req, res) => {
+  try {
+    const { fuelType, range } = req.query;
+    if (!fuelType) return response(res, 400, "fuelType query parameter is required");
+    
+    const trend = await FuelService.calculatePriceTrend(req.params.stationId, fuelType, range);
+    response(res, 200, "Price trend retrieved", trend);
+  } catch (err) {
+    response(res, 500, err.message);
   }
 };

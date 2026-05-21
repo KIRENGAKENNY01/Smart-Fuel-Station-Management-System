@@ -40,4 +40,15 @@ const stationSchema = new mongoose.Schema({
 // Create a geospatial index for near-by searches
 stationSchema.index({ location: "2dsphere" });
 
+stationSchema.set('toJSON', {
+  virtuals: true,
+  transform: (doc, ret) => {
+    if (ret.location && ret.location.coordinates) {
+      ret.longitude = ret.location.coordinates[0];
+      ret.latitude = ret.location.coordinates[1];
+    }
+    return ret;
+  }
+});
+
 export default mongoose.model("Station", stationSchema);

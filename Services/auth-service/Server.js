@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import { connectDB, logger } from "@smart-fuel/shared";
 import authRoutes from "./src/routes/auth.routes.js";
+import userRoutes from "./src/routes/user.routes.js";
 
 // Load environment variables
 dotenv.config();
@@ -15,6 +16,7 @@ app.use(cors());
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/auth/users", userRoutes);
 
 // Health Check
 app.get("/health", (req, res) => {

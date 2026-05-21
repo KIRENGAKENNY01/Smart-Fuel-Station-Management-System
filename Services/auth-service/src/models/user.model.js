@@ -18,7 +18,20 @@ const userSchema = new mongoose.Schema(
             type:String ,
             enum:["ADMIN","MANAGER","DRIVER"],
             default:"DRIVER"
-
+        },
+        status:{
+            type:String,
+            enum:["ACTIVE","SUSPENDED","PENDING_APPROVAL","REJECTED"],
+            default:"ACTIVE"
+        },
+        station_id:{
+            type:mongoose.Schema.Types.ObjectId,
+            default:null
+        },
+        application_message:{
+            type:String,
+            trim:true,
+            default:null
         },
         password:{
             type:String, 

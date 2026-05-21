@@ -1,14 +1,18 @@
 import * as AuthService from "../services/auth.service.js";
 
-export const signup = async(req,res)=> {
-    try{
-        const user= await AuthService.signup(req.body);
-        res.status(201).json(user);
-    }
-    catch(err){ 
-        res.status(400).json({message:err.message})
-    }
-}
+export const signup = async (req, res) => {
+  try {
+    const result = await AuthService.signup(req.body);
+    res.status(201).json({
+      success: true,
+      message: result.message,
+      requiresApproval: result.requiresApproval,
+      data: result.user,
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
 
 
 

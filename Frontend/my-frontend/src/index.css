@@ -21,33 +21,48 @@
 
 @layer base {
   :root {
-    --bg-base: #ffffff;
-    --text-base: #09090b;
-    --text-muted: #f4f4f4;
+    --bg-base: #FFFFFF;
+    --surface-base: #F5F5F5;
+    --border-base: #E5E5E5;
+    --text-primary: #1A1A1A;
+    --text-secondary: #666666;
+    --accent-base: #000000;
   }
   
   .dark {
-    --bg-base: #121212;
-    --text-base: #fafafa;
-    --text-muted: #a1a1aa;
+    --bg-base: #0D0D0D;
+    --surface-base: #1A1A1A;
+    --border-base: #262626;
+    --text-primary: #FFFFFF;
+    --text-secondary: #8C8C8C;
+    --accent-base: #FFFFFF;
   }
 
   body {
     background-color: var(--bg-base);
-    color: var(--text-base);
+    color: var(--text-primary);
     font-family: var(--font-sans);
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.01'/%3E%3C/svg%3E");
   }
 }
 
 @layer components {
   .glass-card {
-    @apply bg-white/50 dark:bg-white/[0.03] backdrop-blur-[12px] border border-black/5 dark:border-white/10 rounded-xl p-6 transition-all;
+    @apply backdrop-blur-[12px] border transition-all;
+    background-color: var(--surface-base);
+    border-color: var(--border-base);
+    border-radius: 12px;
+    padding: 24px;
   }
   .glass-sidebar {
-    @apply bg-white/60 dark:bg-black/40 backdrop-blur-xl border-r border-black/5 dark:border-white/10 transition-all;
+    @apply backdrop-blur-xl border-r transition-all;
+    background-color: var(--bg-base);
+    border-color: var(--border-base);
   }
   .glass-input {
-    @apply bg-white dark:bg-white text-black border border-black/10 dark:border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-inner;
+    @apply rounded-xl px-4 py-2 focus:outline-none transition-all;
+    background-color: var(--surface-base);
+    border: 1px solid var(--border-base);
+    color: var(--text-primary);
   }
 }

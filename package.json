@@ -3,7 +3,7 @@
   "workspaces": [
     "Services/*",
     "api-gateway",
-    "frontend",
+    "Frontend/my-frontend",
     "shared"
   ],
   "version": "1.0.0",
@@ -20,7 +20,9 @@
     "dev:station": "npm run dev -w Services/station-service",
     "dev:fuel": "npm run dev -w Services/fuel-service",
     "dev:transaction": "npm run dev -w Services/transaction-service",
-    "dev:frontend": "npm run dev -w frontend",
+    "dev:report": "npm run dev -w Services/report-service",
+    "dev:notification": "npm run dev -w Services/notification-service",
+    "dev:frontend": "npm run dev -w my-frontend",
     "seed": "node seed.mjs"
   },
   "keywords": [],

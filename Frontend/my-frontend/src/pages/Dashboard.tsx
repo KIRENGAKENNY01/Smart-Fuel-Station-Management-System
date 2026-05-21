@@ -1,210 +1,289 @@
-import { DollarSign, Droplet, CreditCard, Download, MapPin, Map as MapIcon, TrendingUp } from 'lucide-react';
+import { DollarSign, Droplet, CreditCard, MapPin, Map as MapIcon, TrendingUp, Bell, Activity, Zap, Download } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import MetricCard from '../components/MetricCard';
+import { Link } from 'react-router-dom';
+import ProCard from '../components/ProCard';
 import Sidebar from '../components/Sidebar';
 import { stats as mockStats, nearbyStations as mockNearby, staffPerformance as mockStaff } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
-import { FuelService, StationService, TransactionService } from '../services/api';
+import { FuelService, StationService, TransactionService, NotificationService, ReportService } from '../services/api';
+import { formatRwf, formatLiters, fuelTypeLabel } from '../utils/format';
 
 export default function Dashboard() {
-  const { role } = useAuth();
-  
-  // State for real API data
-  const [inventory, setInventory] = useState(mockStats.manager.inventory);
+  const { role, stationId } = useAuth();
+  const [adminStats, setAdminStats] = useState<any>(null);
+  const [managerStats, setManagerStats] = useState<any>(null);
+  const [managerInventory, setManagerInventory] = useState<any[]>([]);
+  const [inventoryPct, setInventoryPct] = useState(0);
   const [nearbyStations, setNearbyStations] = useState(mockNearby);
-  const [spentThisMonth, setSpentThisMonth] = useState(mockStats.driver.spentThisMonth);
-  // Add more states for real data as needed
-  
+  const [spentThisMonth, setSpentThisMonth] = useState('0 RWF');
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
+
   useEffect(() => {
-    // We attempt to fetch real data, but if it fails (e.g. backend offline or missing token), we keep the mock fallback
-    
-    if (role === 'MANAGER') {
-      FuelService.getInventory('1').then(res => {
-        console.log("✅ [Dashboard Manager] Fetched inventory:", res.data);
-        const invData = res.data.data;
-        if (invData && invData.level) setInventory(invData.level);
-      }).catch(err => {
-        console.warn('⚠️ [Dashboard Manager] Using mock data for inventory:', err.response?.data || err.message);
-      });
-    }
-    
-    if (role === 'DRIVER') {
-      StationService.getNearby(-1.9441, 30.0619, 5000).then(res => {
-        console.log("✅ [Dashboard Driver] Fetched nearby stations:", res.data);
-        const stationList = res.data.data;
-        if (stationList && stationList.length > 0) setNearbyStations(stationList);
-      }).catch(err => {
-        console.warn('⚠️ [Dashboard Driver] Using mock data for nearby stations:', err.response?.data || err.message);
-      });
-      
-      TransactionService.getMyHistory().then(res => {
-        console.log("✅ [Dashboard Driver] Fetched my history:", res.data);
-        const history = res.data.data;
-        if (history && Array.isArray(history)) {
-          const total = history.reduce((sum, tx) => sum + (tx.amount || 0), 0);
-          setSpentThisMonth(`$${total}`);
+    const fetchData = async () => {
+      try {
+        if (role === 'MANAGER') {
+          const sid = stationId || localStorage.getItem('stationId');
+          if (sid) {
+            const invRes = await FuelService.getInventory(sid);
+            const invList = invRes.data.data || [];
+            setManagerInventory(invList);
+            if (invList.length) {
+              const avg =
+                invList.reduce(
+                  (s: number, i: { available_liters: number; max_capacity: number }) =>
+                    s + (i.available_liters / (i.max_capacity || 10000)) * 100,
+                  0
+                ) / invList.length;
+              setInventoryPct(Math.round(avg));
+            }
+            const mRes = await TransactionService.getManagerStats(sid);
+            setManagerStats(mRes.data.data);
+          }
+          const notifRes = await NotificationService.getAll();
+          setNotifications(notifRes.data.data || []);
         }
-      }).catch(err => {
-        console.warn('⚠️ [Dashboard Driver] Using mock data for history:', err.response?.data || err.message);
-      });
-    }
-  }, [role]);
+
+        if (role === 'ADMIN') {
+          const statsRes = await TransactionService.getAdminStats('daily');
+          setAdminStats(statsRes.data.data);
+          const notifRes = await NotificationService.getAll();
+          setNotifications(notifRes.data.data || []);
+        }
+
+        if (role === 'DRIVER') {
+          const stationRes = await StationService.getNearby(-1.9441, 30.0619, 5000);
+          if (stationRes.data.data) setNearbyStations(stationRes.data.data);
+
+          const [analyticRes, historyRes] = await Promise.all([
+            TransactionService.getAnalytics(),
+            TransactionService.getMyHistory({ page: 1, limit: 100 }),
+          ]);
+          setAnalytics(analyticRes.data.data);
+          const meta = historyRes.data.meta;
+          const monthSpend = meta?.totalSpent;
+          if (monthSpend != null) {
+            setSpentThisMonth(formatRwf(monthSpend));
+          }
+
+          const notifRes = await NotificationService.getAll();
+          setNotifications(notifRes.data.data || []);
+        }
+      } catch (err) {
+        console.warn('Error fetching dashboard data:', err);
+      }
+    };
+
+    fetchData();
+  }, [role, stationId]);
+
+  const managerFuelSubtitle =
+    managerInventory.length > 0
+      ? managerInventory
+          .map((i: any) => `${fuelTypeLabel(i.fuel_type_id)} ${Number(i.available_liters || 0).toLocaleString()} L`)
+          .join(' · ')
+      : 'No inventory data';
+
+  if (!role) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-text-muted">
+        Loading dashboard…
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
       <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 relative">
         <div className="max-w-7xl mx-auto space-y-12">
-          
           <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
-              <p className="text-text-muted mt-1">Welcome to Qiespend Dashboard</p>
+              <p className="text-text-muted mt-1">Welcome to XYZ.ltd Dashboard</p>
             </div>
-            {role === 'ADMIN' && (
-              <button className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-primary-900 font-medium rounded-lg hover:bg-primary-600 transition-colors shadow-sm">
-                <Download className="w-4 h-4" />
-                Export Report
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              <Link
+                to="/notifications"
+                className="relative p-2 bg-black/5 dark:bg-white/5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+              >
+                <Bell className="w-5 h-5" />
+                {notifications.filter((n: { is_read?: boolean }) => !n.is_read).length > 0 && (
+                  <span className="absolute top-0 right-0 w-2 h-2 bg-danger rounded-full" />
+                )}
+              </Link>
+              {role === 'ADMIN' && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    ReportService.downloadAdmin('daily').then((r) => {
+                      const url = URL.createObjectURL(r.data);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'admin-report.json';
+                      a.click();
+                    })
+                  }
+                  className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-primary-900 font-medium rounded-lg"
+                >
+                  <Download className="w-4 h-4" />
+                  Export Report
+                </button>
+              )}
+              {(role === 'ADMIN' || role === 'MANAGER') && (
+                <Link to="/alerts" className="text-sm font-medium text-primary-500 hover:underline">
+                  View alerts
+                </Link>
+              )}
+            </div>
           </header>
 
-          {/* Admin View */}
           {role === 'ADMIN' && (
             <section className="space-y-6">
-              <h2 className="text-xl font-semibold border-b border-black/5 dark:border-white/10 pb-2">Admin View (City-Level)</h2>
+              <h2 className="text-xl font-semibold border-b border-black/5 dark:border-white/10 pb-2">
+                Admin View (City-Level)
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                <MetricCard 
-                  title="Total Revenue" 
-                  value={mockStats.admin.totalRevenue} 
-                  change={mockStats.admin.revenueChange} 
-                  icon={DollarSign} 
-                  trend="up" 
+                <ProCard
+                  title="Total Revenue"
+                  value={formatRwf(adminStats?.totalRevenue)}
+                  subtitle="Today (daily period)"
+                  icon={DollarSign}
+                  variant="primary"
                 />
-                <div className="glass-card xl:col-span-2 flex flex-col justify-center items-center h-40 min-h-[200px] gap-3">
-                  <MapIcon className="w-10 h-10 text-text-muted" />
-                  <p className="text-text-muted font-medium">Map view of Kigali stations goes here</p>
-                </div>
+                <ProCard
+                  title="Fuel Sold"
+                  value={formatLiters(adminStats?.totalFuelSold)}
+                  subtitle={`${adminStats?.transactionCount || 0} transactions`}
+                  icon={Droplet}
+                  variant="secondary"
+                />
+                <ProCard
+                  title="Most Active Station"
+                  value={
+                    adminStats?.mostActiveStation?.stationId
+                      ? `#${String(adminStats.mostActiveStation.stationId).slice(-6)}`
+                      : 'N/A'
+                  }
+                  subtitle={
+                    adminStats?.mostActiveStation
+                      ? formatRwf(adminStats.mostActiveStation.revenue)
+                      : 'No data'
+                  }
+                  icon={MapPin}
+                  variant="accent"
+                />
               </div>
             </section>
           )}
 
-          {/* Manager View */}
           {role === 'MANAGER' && (
             <section className="space-y-6">
-              <h2 className="text-xl font-semibold border-b border-black/5 dark:border-white/10 pb-2">Manager View (Station-Level)</h2>
+              <h2 className="text-xl font-semibold border-b border-black/5 dark:border-white/10 pb-2">
+                Manager View (Station-Level)
+              </h2>
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <div className="glass-card xl:col-span-1 space-y-6">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-semibold text-lg">Fuel Inventory</h3>
-                    <div className="p-2 bg-danger/10 text-danger rounded-lg"><Droplet className="w-5 h-5" /></div>
+                <ProCard
+                  title="Today's Revenue"
+                  value={formatRwf(managerStats?.todayRevenue)}
+                  subtitle={`${managerStats?.todayTransactions || 0} sales today`}
+                  icon={DollarSign}
+                  variant="primary"
+                />
+                <ProCard
+                  title="Fuel Inventory"
+                  value={`${inventoryPct}%`}
+                  subtitle={managerFuelSubtitle}
+                  icon={Droplet}
+                  variant="danger"
+                >
+                  <div className="w-full bg-black/10 dark:bg-white/10 rounded-full h-3 mt-4">
+                    <div
+                      className="bg-danger h-3 rounded-full"
+                      style={{ width: `${Math.min(inventoryPct, 100)}%` }}
+                    />
                   </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-text-muted">Current Level</span>
-                      <span className="font-bold">{inventory}%</span>
-                    </div>
-                    <div className="w-full bg-black/10 dark:bg-white/10 rounded-full h-3">
-                      <div className="bg-primary-500 h-3 rounded-full" style={{ width: `${inventory}%` }}></div>
-                    </div>
-                    <p className="text-xs text-text-muted mt-2">{mockStats.manager.inventoryChange} vs last month</p>
-                  </div>
-                  <button className="w-full py-3 bg-white/10 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg font-medium hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+                  <Link
+                    to="/inventory"
+                    className="block w-full mt-6 py-2 text-center bg-white/10 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  >
                     Request Refill
-                  </button>
-                </div>
-                
-                <div className="glass-card xl:col-span-2">
-                  <h3 className="font-semibold text-lg mb-6">Staff Performance</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="text-text-muted text-sm border-b border-black/5 dark:border-white/10">
-                          <th className="pb-3 font-medium">Name</th>
-                          <th className="pb-3 font-medium">Role</th>
-                          <th className="pb-3 font-medium">Sales</th>
-                          <th className="pb-3 font-medium">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-sm">
-                        {mockStaff.map((staff, i) => (
-                          <tr key={staff.id} className={i % 2 === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}>
-                            <td className="py-3 font-medium">{staff.name}</td>
-                            <td className="py-3 text-text-muted">{staff.role}</td>
-                            <td className="py-3">{staff.sales}</td>
-                            <td className="py-3">
-                              <span className="px-2 py-1 bg-primary-500/20 text-primary-900 dark:text-primary-500 rounded text-xs font-medium">
-                                {staff.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                  </Link>
+                </ProCard>
               </div>
             </section>
           )}
 
-          {/* Driver View */}
           {role === 'DRIVER' && (
             <section className="space-y-6">
-              <h2 className="text-xl font-semibold border-b border-black/5 dark:border-white/10 pb-2">Driver View (User-Level)</h2>
+              <h2 className="text-xl font-semibold border-b border-black/5 dark:border-white/10 pb-2">
+                Driver Dashboard
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                
-                <div className="glass-card p-0 overflow-hidden flex flex-col justify-between" style={{ background: 'var(--color-accents-visa_card_gradient, linear-gradient(135deg, #000000 0%, #365314 100%))' }}>
-                  <div className="p-6 text-white h-full flex flex-col justify-between min-h-[200px]">
-                    <div className="flex justify-between items-start">
-                      <CreditCard className="w-8 h-8 text-white/80" />
-                      <span className="text-xs font-medium bg-white/20 px-2 py-1 rounded">Quick Pay</span>
-                    </div>
-                    <div>
-                      <p className="text-white/60 text-sm mb-1">Spent This Month</p>
-                      <p className="text-3xl font-bold">{spentThisMonth}</p>
-                      <p className="text-white/60 text-xs mt-2">{mockStats.driver.spentChange} vs last month</p>
-                    </div>
-                  </div>
-                  <button className="w-full py-4 bg-white/10 hover:bg-white/20 text-white font-medium backdrop-blur-md transition-colors text-center border-t border-white/10">
-                    Pay for Fuel
-                  </button>
-                </div>
+                <ProCard
+                  title="Spent This Month"
+                  value={spentThisMonth}
+                  subtitle="Completed purchases"
+                  icon={CreditCard}
+                  variant="primary"
+                >
+                  <Link
+                    to="/purchase"
+                    className="block w-full mt-4 py-3 text-center bg-primary-500 text-primary-900 font-bold rounded-xl"
+                  >
+                    Purchase Fuel
+                  </Link>
+                </ProCard>
+
+                <ProCard
+                  title="Total Consumption"
+                  value={formatLiters(analytics?.totalLiters)}
+                  subtitle={`Avg: ${formatRwf(analytics?.averagePrice)}/L`}
+                  icon={Activity}
+                  variant="secondary"
+                />
+
+                <ProCard
+                  title="Most Used Fuel"
+                  value={analytics?.mostUsedFuelType ? fuelTypeLabel(analytics.mostUsedFuelType) : 'N/A'}
+                  subtitle="Preferred choice"
+                  icon={Zap}
+                  variant="accent"
+                />
 
                 <div className="glass-card xl:col-span-2">
                   <div className="flex justify-between items-center mb-6">
                     <h3 className="font-semibold text-lg">Nearby Stations</h3>
-                    <div className="p-2 bg-primary-500/10 text-primary-900 dark:text-primary-500 rounded-lg"><MapPin className="w-5 h-5" /></div>
+                    <MapPin className="w-5 h-5 text-primary-500" />
                   </div>
-                  <div className="space-y-4">
-                    {nearbyStations.map((station: any) => (
-                      <div key={station.id || station._id} className="flex justify-between items-center p-4 bg-black/5 dark:bg-white/5 rounded-lg border border-black/5 dark:border-white/10 hover:border-primary-500/50 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center text-primary-900 dark:text-primary-500">
-                            <MapPin className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{station.name}</p>
-                            <p className="text-xs text-text-muted">{station.distance || '0 km'} away</p>
-                          </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    {nearbyStations.slice(0, 3).map((station: any) => (
+                      <div
+                        key={station.id || station._id || station.stationId}
+                        className="flex justify-between items-center p-4 bg-black/5 dark:bg-white/5 rounded-2xl"
+                      >
+                        <div>
+                          <p className="font-bold">{station.name}</p>
+                          <p className="text-xs text-text-muted">
+                            {typeof station.distance === 'number'
+                              ? `${station.distance.toFixed(2)} km`
+                              : 'Near you'}
+                          </p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold">{station.price || '1,450 RWF/L'}</p>
-                        </div>
+                        <p className="font-black text-primary-500">
+                          {station.fuels?.[0]?.pricePerLiter
+                            ? `${station.fuels[0].pricePerLiter} RWF/L`
+                            : '—'}
+                        </p>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
-              
-              <div className="glass-card min-h-[200px] flex flex-col justify-center items-center gap-3">
-                 <TrendingUp className="w-10 h-10 text-chart-highlight" />
-                 <p className="text-text-muted font-medium">Price Tracking Line Chart Goes Here</p>
-              </div>
             </section>
           )}
 
-          {/* Footer margin */}
-          <div className="h-8"></div>
+          <div className="h-8" />
         </div>
       </main>
     </div>

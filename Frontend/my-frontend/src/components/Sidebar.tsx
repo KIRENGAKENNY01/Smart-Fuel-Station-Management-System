@@ -1,4 +1,4 @@
-import { Home, Users, Map, Settings, Menu, CreditCard, Droplets, MapPin, LogOut } from 'lucide-react';
+import { Home, Users, Map, Menu, CreditCard, Droplets, MapPin, LogOut, ShoppingCart, Bell, User, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 import clsx from 'clsx';
 import { NavLink } from 'react-router-dom';
@@ -10,28 +10,35 @@ const roleLinks = {
   ADMIN: [
     { name: 'Dashboard', path: '/dashboard', icon: Home },
     { name: 'Stations', path: '/stations', icon: Map },
-    { name: 'System Staff', path: '/staff', icon: Users },
-    { name: 'All Transactions', path: '/transactions', icon: CreditCard },
+    { name: 'Users', path: '/staff', icon: Users },
+    { name: 'Transactions', path: '/transactions', icon: CreditCard },
+    { name: 'Alerts', path: '/alerts', icon: AlertTriangle },
+    { name: 'Profile', path: '/profile', icon: User },
   ],
   MANAGER: [
     { name: 'Dashboard', path: '/dashboard', icon: Home },
     { name: 'Inventory', path: '/inventory', icon: Droplets },
-    { name: 'Station Staff', path: '/staff', icon: Users },
     { name: 'Station Sales', path: '/sales', icon: CreditCard },
+    { name: 'Notifications', path: '/notifications', icon: Bell },
+    { name: 'Alerts', path: '/alerts', icon: AlertTriangle },
+    { name: 'Profile', path: '/profile', icon: User },
   ],
   DRIVER: [
     { name: 'Dashboard', path: '/dashboard', icon: Home },
+    { name: 'Purchase Fuel', path: '/purchase', icon: ShoppingCart },
     { name: 'Nearby Stations', path: '/nearby', icon: MapPin },
     { name: 'My History', path: '/history', icon: CreditCard },
+    { name: 'Notifications', path: '/notifications', icon: Bell },
+    { name: 'Profile', path: '/profile', icon: User },
   ]
 };
 
 export default function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const { role } = useAuth();
+  const { role, clearSession } = useAuth();
 
   // If role isn't loaded yet or logged out, maybe default to DRIVER or empty
-  const links = roleLinks[role] || [];
+  const links = role ? roleLinks[role] || [] : [];
 
   return (
     <>
@@ -52,7 +59,7 @@ export default function Sidebar() {
           <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center font-bold text-primary-900">
             Q
           </div>
-          <h1 className="font-bold text-lg tracking-tight">Qiespend</h1>
+          <h1 className="font-bold text-lg tracking-tight">XYZ.ltd</h1>
         </div>
         
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
@@ -84,7 +91,7 @@ export default function Sidebar() {
               } catch (e) {
                 console.error(e);
               } finally {
-                localStorage.removeItem('token');
+                clearSession();
                 window.location.href = '/login';
               }
             }}

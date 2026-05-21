@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthService } from '../services/api';
@@ -10,7 +10,13 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { setRole } = useAuth();
+  const { setRole, setStationId } = useAuth();
+
+  useEffect(() => {
+    const theme = localStorage.getItem('theme') || 'dark';
+    if (!localStorage.getItem('theme')) localStorage.setItem('theme', 'dark');
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +28,10 @@ export default function Login() {
       const { user, tokens } = res.data;
       
       localStorage.setItem('token', tokens.accessToken);
+      if (user.email) localStorage.setItem('userEmail', user.email);
       setRole(user.role);
+      if (user.station_id) setStationId(String(user.station_id));
+      else setStationId(null);
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
@@ -38,7 +47,7 @@ export default function Login() {
           <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center font-bold text-primary-900">
             Q
           </div>
-          <h1 className="font-bold text-lg tracking-tight">Qiespend</h1>
+          <h1 className="font-bold text-lg tracking-tight">XYZ.ltd</h1>
         </div>
       </div>
       
