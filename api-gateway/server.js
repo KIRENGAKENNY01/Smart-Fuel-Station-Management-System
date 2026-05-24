@@ -4,13 +4,33 @@ import proxy from "express-http-proxy";
 import helmet from "helmet";
 import morgan from "morgan";
 import dotenv from "dotenv";
+import swaggerUi from "swagger-ui-express";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
 dotenv.config();
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const openapiSpec = JSON.parse(readFileSync(join(__dirname, "openapi.json"), "utf8"));
+
 const app = express();
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  })
+);
 app.use(cors());
 app.use(morgan("dev"));
+
+// Swagger API documentation
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapiSpec, {
+  customSiteTitle: "Smart Fuel API Docs",
+  swaggerOptions: { persistAuthorization: true },
+}));
+app.get("/api-docs/openapi.json", (_req, res) => {
+  res.json(openapiSpec);
+});
 
 // --- Routing Table ---
 const AUTH_SERVICE = process.env.AUTH_SERVICE_URL || "http://localhost:5001";

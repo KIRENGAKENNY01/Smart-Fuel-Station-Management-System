@@ -6,6 +6,5 @@ const router = express.Router();
 
 router.get("/driver", authMiddleware, ReportController.downloadDriverReport);
 router.get("/admin", authMiddleware, authorize([Roles.ADMIN]), ReportController.downloadAdminReport);
-router.get("/admin", authMiddleware, ReportController.downloadAdminReport);
 
 export default router;

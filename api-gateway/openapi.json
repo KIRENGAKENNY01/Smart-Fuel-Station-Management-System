@@ -1,0 +1,835 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Smart Fuel Station Management System API",
+    "description": "REST API for the XYZ.ltd Smart Fuel Station platform. All routes are exposed through the API Gateway (port 5000). Most endpoints require a Bearer JWT from `/api/auth/login`.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Smart Fuel Station API"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local API Gateway"
+    }
+  ],
+  "tags": [
+    { "name": "Gateway", "description": "Gateway health" },
+    { "name": "Auth", "description": "Signup, login, tokens" },
+    { "name": "Users", "description": "Profiles and admin user management" },
+    { "name": "Stations", "description": "Fuel station CRUD and discovery" },
+    { "name": "Fuel", "description": "Prices, inventory, and supply" },
+    { "name": "Transactions", "description": "Purchases, sales, receipts, analytics" },
+    { "name": "Reports", "description": "Exportable reports" },
+    { "name": "Notifications", "description": "User notifications" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Access token from POST /api/auth/login"
+      }
+    },
+    "schemas": {
+      "ApiSuccess": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string" },
+          "data": {},
+          "meta": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "message": { "type": "string" },
+          "error": { "type": "string" }
+        }
+      },
+      "SignupRequest": {
+        "type": "object",
+        "required": ["full_name", "email", "password", "role"],
+        "properties": {
+          "full_name": { "type": "string", "example": "Jean Driver" },
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "format": "password" },
+          "role": { "type": "string", "enum": ["DRIVER", "MANAGER", "ADMIN"] },
+          "station_id": { "type": "string", "description": "Required for MANAGER signup" },
+          "application_message": { "type": "string" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "format": "password" }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "_id": { "type": "string" },
+              "full_name": { "type": "string" },
+              "email": { "type": "string" },
+              "role": { "type": "string", "enum": ["ADMIN", "MANAGER", "DRIVER"] },
+              "station_id": { "type": "string", "nullable": true }
+            }
+          },
+          "tokens": {
+            "type": "object",
+            "properties": {
+              "accessToken": { "type": "string" },
+              "refreshToken": { "type": "string" }
+            }
+          }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": ["token"],
+        "properties": {
+          "token": { "type": "string", "description": "Refresh token" }
+        }
+      },
+      "CreateTransactionRequest": {
+        "type": "object",
+        "required": ["stationId", "fuelType", "liters"],
+        "properties": {
+          "stationId": { "type": "string" },
+          "fuelType": { "type": "string", "description": "Fuel type ObjectId" },
+          "liters": { "type": "number", "minimum": 0.1, "example": 25 }
+        }
+      },
+      "StationCreate": {
+        "type": "object",
+        "required": ["name", "latitude", "longitude"],
+        "properties": {
+          "name": { "type": "string" },
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" },
+          "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"] }
+        }
+      },
+      "FuelSupplyRequest": {
+        "type": "object",
+        "required": ["station_id", "fuel_type_id", "liters_added"],
+        "properties": {
+          "station_id": { "type": "string" },
+          "fuel_type_id": { "type": "string" },
+          "liters_added": { "type": "number" }
+        }
+      },
+      "FuelPriceUpdate": {
+        "type": "object",
+        "required": ["station_id", "fuel_type_id", "price"],
+        "properties": {
+          "station_id": { "type": "string" },
+          "fuel_type_id": { "type": "string" },
+          "price": { "type": "number", "description": "RWF per liter" }
+        }
+      },
+      "InternalNotification": {
+        "type": "object",
+        "required": ["user_id", "type", "message"],
+        "properties": {
+          "user_id": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PURCHASE_CONFIRMATION",
+              "PAYMENT_PENDING",
+              "PAYMENT_RECEIPT",
+              "PROMOTION",
+              "RECEIPT",
+              "PRICE_CHANGE",
+              "ALERT",
+              "LOW_FUEL",
+              "FAILED_TRANSACTION",
+              "LOW_STOCK"
+            ]
+          },
+          "message": { "type": "string" },
+          "transaction_id": { "type": "string" }
+        }
+      }
+    },
+    "parameters": {
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "schema": { "type": "integer", "default": 1 }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": { "type": "integer", "default": 10 }
+      },
+      "StationId": {
+        "name": "stationId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" }
+      },
+      "ResourceId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing or invalid JWT",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ApiError" }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Insufficient role",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ApiError" }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Gateway"],
+        "summary": "Gateway health check",
+        "responses": {
+          "200": {
+            "description": "Gateway is running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "API Gateway is running" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/signup": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/SignupRequest" } }
+          }
+        },
+        "responses": {
+          "201": { "description": "User created (manager may require approval)" },
+          "400": { "description": "Validation error" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login and receive JWT tokens",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/LoginResponse" } }
+            }
+          },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Refresh access token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/RefreshRequest" } }
+          }
+        },
+        "responses": {
+          "200": { "description": "New access token" },
+          "401": { "description": "Invalid refresh token" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Logout (invalidate refresh token)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshRequest" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Logged out" } }
+      }
+    },
+    "/api/auth/users/me": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get current user profile",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Profile", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiSuccess" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update current user profile",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "full_name": { "type": "string" },
+                  "email": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated profile" } }
+      }
+    },
+    "/api/auth/users/me/password": {
+      "put": {
+        "tags": ["Users"],
+        "summary": "Change password",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["currentPassword", "newPassword"],
+                "properties": {
+                  "currentPassword": { "type": "string" },
+                  "newPassword": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Password changed" } }
+      }
+    },
+    "/api/auth/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "List all users (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "User list" } }
+      },
+      "post": {
+        "tags": ["Users"],
+        "summary": "Create user (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/SignupRequest" } }
+          }
+        },
+        "responses": { "201": { "description": "User created" } }
+      }
+    },
+    "/api/auth/users/pending/managers": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "List pending manager applications (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Pending managers" } }
+      }
+    },
+    "/api/auth/users/{id}/approve": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Approve manager and assign station (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "station_id": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Manager approved" } }
+      }
+    },
+    "/api/auth/users/{id}/reject": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Reject manager application (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "reason": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Application rejected" } }
+      }
+    },
+    "/api/auth/users/{id}/suspend": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Suspend user (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "responses": { "200": { "description": "User suspended" } }
+      }
+    },
+    "/api/auth/users/{id}": {
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update user (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "responses": { "200": { "description": "User updated" } }
+      },
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Delete user (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "responses": { "200": { "description": "User deleted" } }
+      }
+    },
+    "/api/stations/nearby": {
+      "get": {
+        "tags": ["Stations"],
+        "summary": "Find stations near coordinates",
+        "parameters": [
+          { "name": "lat", "in": "query", "required": true, "schema": { "type": "number" }, "example": -1.9441 },
+          { "name": "lon", "in": "query", "required": true, "schema": { "type": "number" }, "example": 30.0619 },
+          { "name": "distance", "in": "query", "schema": { "type": "integer", "default": 5000, "description": "Max distance in meters" } }
+        ],
+        "responses": { "200": { "description": "Nearby stations with fuel prices" } }
+      }
+    },
+    "/api/stations": {
+      "get": {
+        "tags": ["Stations"],
+        "summary": "List all stations",
+        "responses": { "200": { "description": "Station list" } }
+      },
+      "post": {
+        "tags": ["Stations"],
+        "summary": "Create station (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/StationCreate" } }
+          }
+        },
+        "responses": { "201": { "description": "Station created" } }
+      }
+    },
+    "/api/stations/{id}": {
+      "get": {
+        "tags": ["Stations"],
+        "summary": "Get station by ID",
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "responses": { "200": { "description": "Station details" }, "404": { "description": "Not found" } }
+      },
+      "put": {
+        "tags": ["Stations"],
+        "summary": "Update station (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "responses": { "200": { "description": "Station updated" } }
+      },
+      "delete": {
+        "tags": ["Stations"],
+        "summary": "Delete station (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "responses": { "200": { "description": "Station deleted" } }
+      }
+    },
+    "/api/stations/{id}/assign-manager": {
+      "patch": {
+        "tags": ["Stations"],
+        "summary": "Assign manager to station (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["managerId"],
+                "properties": { "managerId": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Manager assigned" } }
+      }
+    },
+    "/api/fuel/types": {
+      "get": {
+        "tags": ["Fuel"],
+        "summary": "List fuel types (PETROL, DIESEL)",
+        "responses": { "200": { "description": "Fuel types" } }
+      }
+    },
+    "/api/fuel/prices": {
+      "get": {
+        "tags": ["Fuel"],
+        "summary": "Get all station fuel prices",
+        "responses": { "200": { "description": "Price list" } }
+      }
+    },
+    "/api/fuel/prices/{stationId}": {
+      "get": {
+        "tags": ["Fuel"],
+        "summary": "Get prices for one station",
+        "parameters": [{ "$ref": "#/components/parameters/StationId" }],
+        "responses": { "200": { "description": "Station prices" } }
+      }
+    },
+    "/api/fuel/price-trend/{stationId}": {
+      "get": {
+        "tags": ["Fuel"],
+        "summary": "Get price trend for a fuel type",
+        "parameters": [
+          { "$ref": "#/components/parameters/StationId" },
+          { "name": "fuelType", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "range", "in": "query", "schema": { "type": "string", "enum": ["daily", "weekly", "monthly"] } }
+        ],
+        "responses": { "200": { "description": "Price trend data" } }
+      }
+    },
+    "/api/fuel/inventory/{stationId}": {
+      "get": {
+        "tags": ["Fuel"],
+        "summary": "Get station fuel inventory (Admin/Manager)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/StationId" }],
+        "responses": { "200": { "description": "Inventory records" } }
+      }
+    },
+    "/api/fuel/supply": {
+      "post": {
+        "tags": ["Fuel"],
+        "summary": "Add fuel supply to inventory (Admin/Manager)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/FuelSupplyRequest" } }
+          }
+        },
+        "responses": { "201": { "description": "Supply logged" } }
+      }
+    },
+    "/api/fuel/price": {
+      "put": {
+        "tags": ["Fuel"],
+        "summary": "Update fuel price (Admin/Manager)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/FuelPriceUpdate" } }
+          }
+        },
+        "responses": { "200": { "description": "Price updated" } }
+      }
+    },
+    "/api/fuel/inventory-level": {
+      "put": {
+        "tags": ["Fuel"],
+        "summary": "Set absolute fuel stock level (Admin/Manager)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["station_id", "fuel_type_id", "liters"],
+                "properties": {
+                  "station_id": { "type": "string" },
+                  "fuel_type_id": { "type": "string" },
+                  "liters": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Level updated" } }
+      }
+    },
+    "/api/fuel/stock-update": {
+      "put": {
+        "tags": ["Fuel"],
+        "summary": "Internal stock update (called by transaction service)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "station_id": { "type": "string" },
+                  "fuel_type_id": { "type": "string" },
+                  "amount": { "type": "number" },
+                  "operation": { "type": "string", "enum": ["add", "subtract"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Stock updated" } }
+      }
+    },
+    "/api/transactions": {
+      "post": {
+        "tags": ["Transactions"],
+        "summary": "Create fuel purchase (Driver) — status PENDING until manager confirms",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateTransactionRequest" } }
+          }
+        },
+        "responses": { "201": { "description": "Payment submitted" }, "400": { "description": "Invalid request or insufficient stock" } }
+      }
+    },
+    "/api/transactions/history": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "Get driver transaction history",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" },
+          { "name": "dateFrom", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "dateTo", "in": "query", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated history with meta (totalSpent, totalLiters, spentThisMonth)"
+          }
+        }
+      }
+    },
+    "/api/transactions/analytics": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "Driver analytics (total liters, spend, most used fuel)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Analytics summary" } }
+      }
+    },
+    "/api/transactions/admin/stats": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "Admin dashboard stats",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "period", "in": "query", "schema": { "type": "string", "enum": ["daily", "weekly", "monthly"], "default": "daily" } }
+        ],
+        "responses": { "200": { "description": "Revenue, fuel sold, active station" } }
+      }
+    },
+    "/api/transactions/admin/all": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "List all transactions (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" },
+          { "name": "stationId", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["PENDING", "COMPLETED", "FAILED"] } },
+          { "name": "dateFrom", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "dateTo", "in": "query", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": { "200": { "description": "Transaction list" } }
+      }
+    },
+    "/api/transactions/manager/stats": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "Manager station stats for today",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "stationId", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "todayRevenue, todayLiters, pendingPayments" } }
+      }
+    },
+    "/api/transactions/station-sales/{stationId}": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "Station sales list (Admin/Manager)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/StationId" },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "dateFrom", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "dateTo", "in": "query", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": { "200": { "description": "Sales transactions" } }
+      }
+    },
+    "/api/transactions/{id}/confirm": {
+      "post": {
+        "tags": ["Transactions"],
+        "summary": "Confirm pending payment (Manager/Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "email": { "type": "string", "description": "Optional receipt email override" } }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Payment confirmed, stock deducted, notifications sent" } }
+      }
+    },
+    "/api/transactions/{id}/receipt": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "Get receipt JSON",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "responses": { "200": { "description": "Receipt data" } }
+      }
+    },
+    "/api/transactions/{id}/receipt/download": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "Download receipt file",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "responses": { "200": { "description": "Receipt blob" } }
+      }
+    },
+    "/api/transactions/{id}/receipt/email": {
+      "post": {
+        "tags": ["Transactions"],
+        "summary": "Email receipt to driver",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "email": { "type": "string", "format": "email" } }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Receipt emailed" } }
+      }
+    },
+    "/api/reports/driver": {
+      "get": {
+        "tags": ["Reports"],
+        "summary": "Download driver fuel history report",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "format", "in": "query", "schema": { "type": "string", "enum": ["json", "csv"], "default": "json" } },
+          { "name": "dateFrom", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "dateTo", "in": "query", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": { "200": { "description": "Report file" } }
+      }
+    },
+    "/api/reports/admin": {
+      "get": {
+        "tags": ["Reports"],
+        "summary": "Download admin report (Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "period", "in": "query", "schema": { "type": "string", "enum": ["daily", "weekly", "monthly"], "default": "daily" } }
+        ],
+        "responses": { "200": { "description": "Admin report file" } }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "List notifications for current user",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Notification list" } }
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "put": {
+        "tags": ["Notifications"],
+        "summary": "Mark notification as read",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
+        "responses": { "200": { "description": "Marked read" } }
+      }
+    },
+    "/api/notifications/internal": {
+      "post": {
+        "tags": ["Notifications"],
+        "summary": "Create notification (internal service-to-service)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/InternalNotification" } }
+          }
+        },
+        "responses": { "201": { "description": "Notification created" } }
+      }
+    }
+  }
+}
