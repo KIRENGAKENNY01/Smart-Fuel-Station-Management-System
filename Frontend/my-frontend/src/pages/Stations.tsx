@@ -3,6 +3,7 @@ import { MapPin, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { StationService, AuthService } from '../services/api';
 import TransactionDataTable from '../components/TransactionDataTable';
+import { stationSchema, validateForm } from '../utils/validation';
 
 export default function Stations() {
   const [stations, setStations] = useState<any[]>([]);
@@ -29,18 +30,20 @@ export default function Stations() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const body = {
-      name: form.name,
-      latitude: parseFloat(form.latitude),
-      longitude: parseFloat(form.longitude),
-      manager_id: form.manager_id,
-    };
+    const check = validateForm(stationSchema, form);
+    if (!check.success) {
+      alert(check.error);
+      return;
+    }
+    const { manager_id, ...stationData } = check.data;
     try {
       if (editing) {
-        await StationService.update(editing._id, body);
-        if (form.manager_id) await StationService.assignManager(editing._id, form.manager_id);
+        await StationService.update(editing._id, stationData);
+        if (manager_id) await StationService.assignManager(editing._id, manager_id);
       } else {
-        await StationService.create(body);
+        const created = await StationService.create(stationData);
+        const newId = created.data.data?._id || created.data._id;
+        if (manager_id && newId) await StationService.assignManager(newId, manager_id);
       }
       setShowForm(false);
       setEditing(null);
@@ -87,8 +90,8 @@ export default function Stations() {
       {showForm && (
         <form onSubmit={submit} className="glass-card p-6 mb-8 grid md:grid-cols-2 gap-4">
           <input className="glass-input" placeholder="Station name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <select className="glass-input" value={form.manager_id} onChange={(e) => setForm({ ...form, manager_id: e.target.value })} required>
-            <option value="">Assign manager</option>
+          <select className="glass-input" value={form.manager_id} onChange={(e) => setForm({ ...form, manager_id: e.target.value })}>
+            <option value="">No manager assigned (assign later)</option>
             {managers.map((m) => <option key={m._id} value={m._id}>{m.full_name}</option>)}
           </select>
           <input className="glass-input" placeholder="Latitude" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} required />

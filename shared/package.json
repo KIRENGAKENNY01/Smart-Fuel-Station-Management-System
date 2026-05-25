@@ -4,5 +4,8 @@
   "type": "module",
   "description": "Shared constants, utilities and middleware",
   "main": "index.js",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "zod": "^3.24.2"
+  }
 }

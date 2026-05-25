@@ -56,7 +56,14 @@ export default function Transactions() {
       title="All Transactions"
       description="View and filter system-wide transactions"
       actions={
-        <button type="button" onClick={() => ReportService.downloadAdmin(period).then((r) => downloadBlob(r.data, `admin-report-${period}.json`))} className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-primary-900 font-medium rounded-lg">
+        <button type="button" onClick={async () => {
+          try {
+            const r = await ReportService.downloadAdmin(period);
+            downloadBlob(r.data, `admin-report-${period}.json`);
+          } catch {
+            alert('Failed to export report. Please try again.');
+          }
+        }} className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-primary-900 font-medium rounded-lg">
           <Download className="w-4 h-4" /> Export report
         </button>
       }

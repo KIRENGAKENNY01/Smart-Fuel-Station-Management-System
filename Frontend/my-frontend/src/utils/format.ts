@@ -20,10 +20,12 @@ export function formatLiters(liters: number | undefined | null): string {
   return `${n.toLocaleString()} L`;
 }
 
-export function fuelTypeLabel(fuel: { fuelTypes?: string; name?: string; fuelType?: string } | string | null): string {
-  if (!fuel) return 'Fuel';
-  const raw = typeof fuel === 'string' ? fuel : fuel.fuelType || fuel.fuelTypes || fuel.name || 'Fuel';
-  if (raw === 'PETROL') return 'Petrol';
-  if (raw === 'DIESEL') return 'Diesel';
+export function fuelTypeLabel(fuel: { fuelTypes?: string; name?: string; fuelType?: string } | string | null | undefined): string {
+  if (!fuel) return 'Unknown';
+  const raw = typeof fuel === 'string' ? fuel : fuel.fuelType || fuel.fuelTypes || fuel.name;
+  if (!raw) return 'Unknown';
+  const upper = raw.trim().toUpperCase();
+  if (upper === 'PETROL' || upper === 'P95' || /petrol/i.test(raw)) return 'Petrol';
+  if (upper === 'DIESEL' || upper === 'D10' || /diesel/i.test(raw)) return 'Diesel';
   return raw;
 }

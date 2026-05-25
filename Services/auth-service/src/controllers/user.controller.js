@@ -46,6 +46,15 @@ export const suspend = async (req, res) => {
   }
 };
 
+export const unsuspend = async (req, res) => {
+  try {
+    const user = await AuthService.unsuspendUser(req.params.id);
+    response(res, 200, "User unsuspended", user);
+  } catch (err) {
+    response(res, 400, err.message);
+  }
+};
+
 export const listPendingManagers = async (req, res) => {
   try {
     const users = await AuthService.getPendingManagers();

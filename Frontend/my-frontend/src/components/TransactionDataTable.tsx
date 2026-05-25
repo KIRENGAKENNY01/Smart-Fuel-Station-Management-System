@@ -32,16 +32,6 @@ const TransactionDataTable: React.FC<TransactionDataTableProps> = ({ columns, da
           </div>
           
           <div className="hidden lg:flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 bg-[var(--surface-base)] border border-[var(--border-base)] rounded-xl text-[12px] font-semibold text-[var(--text-primary)] whitespace-nowrap">
-              <Sparkles className="w-4 h-4" />
-              Status
-              <ChevronDown className="w-4 h-4 ml-1" />
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-[var(--surface-base)] border border-[var(--border-base)] rounded-xl text-[12px] font-semibold text-[var(--text-primary)] whitespace-nowrap">
-              <Calendar className="w-4 h-4" />
-              Processed Date
-              <ChevronDown className="w-4 h-4 ml-1" />
-            </button>
           </div>
         </div>
 
@@ -56,9 +46,6 @@ const TransactionDataTable: React.FC<TransactionDataTableProps> = ({ columns, da
         <table className="w-full border-collapse">
           <thead>
             <tr className="h-[48px] border-b border-[var(--border-base)] bg-[var(--bg-base)]">
-              <th className="w-[48px] px-6 text-left">
-                <input type="checkbox" className="w-4 h-4 rounded-md border-[var(--border-base)] bg-[var(--surface-base)] accent-[var(--text-primary)]" />
-              </th>
               {columns.map((col) => (
                 <th 
                   key={col.id}
@@ -80,9 +67,6 @@ const TransactionDataTable: React.FC<TransactionDataTableProps> = ({ columns, da
             ) : (
               data.map((row, i) => (
                 <tr key={i} className="h-[64px] border-b border-[var(--border-base)] hover:bg-[var(--surface-base)]/50 transition-colors group">
-                  <td className="px-6 text-left">
-                    <input type="checkbox" className="w-4 h-4 rounded-md border-[var(--border-base)] bg-[var(--surface-base)] accent-[var(--text-primary)]" />
-                  </td>
                   {columns.map((col) => (
                     <td 
                       key={col.id}

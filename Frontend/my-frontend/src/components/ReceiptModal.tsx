@@ -52,10 +52,15 @@ export default function ReceiptModal({
     setSending(true);
     setEmailStatus('');
     try {
-      await TransactionService.emailReceipt(receipt.transactionId, email);
-      setEmailStatus(`Receipt sent to ${email}`);
+      const res = await TransactionService.emailReceipt(receipt.transactionId, email);
+      const previewUrl = res.data?.data?.previewUrl;
+      if (previewUrl) {
+        setEmailStatus(`Receipt sent! (Test mode — view at: ${previewUrl})`);
+      } else {
+        setEmailStatus(`Receipt sent to ${email}`);
+      }
     } catch {
-      setEmailStatus('Failed to send receipt email');
+      setEmailStatus('Failed to send receipt email. Check server logs.');
     } finally {
       setSending(false);
     }

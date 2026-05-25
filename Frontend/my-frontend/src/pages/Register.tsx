@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Mail, Lock, User, Briefcase, ArrowRight, MapPin, FileText } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthService, StationService } from '../services/api';
+import { signupSchema, validateForm } from '../utils/validation';
 
 export default function Register() {
   const [fullName, setFullName] = useState('');
@@ -18,7 +19,7 @@ export default function Register() {
 
   useEffect(() => {
     if (role === 'MANAGER') {
-      StationService.getAll()
+      StationService.getSignupOptions()
         .then((res) => setStations(res.data.data || []))
         .catch(() => setStations([]));
     }
@@ -28,23 +29,32 @@ export default function Register() {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    const check = validateForm(signupSchema, {
+      full_name: fullName,
+      email,
+      password,
+      role: role as 'DRIVER' | 'MANAGER',
+      station_id: role === 'MANAGER' ? stationId : undefined,
+      application_message: applicationMessage.trim() || undefined,
+    });
+    if (!check.success) {
+      setError(check.error);
+      return;
+    }
+
     setLoading(true);
 
     try {
       const payload: Record<string, string> = {
-        full_name: fullName,
-        email,
-        password,
-        role,
+        full_name: check.data.full_name,
+        email: check.data.email,
+        password: check.data.password,
+        role: check.data.role,
       };
-      if (role === 'MANAGER') {
-        if (!stationId) {
-          setError('Please select the station you will manage');
-          setLoading(false);
-          return;
-        }
-        payload.station_id = stationId;
-        if (applicationMessage.trim()) payload.application_message = applicationMessage.trim();
+      if (check.data.role === 'MANAGER' && check.data.station_id) {
+        payload.station_id = check.data.station_id;
+        if (check.data.application_message) payload.application_message = check.data.application_message;
       }
 
       const res = await AuthService.signup(payload);

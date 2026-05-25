@@ -103,12 +103,14 @@ export default function Nearby() {
       label: 'Fuel & Pricing',
       render: (prices: any[]) => (
         <div className="flex gap-2">
-          {prices.map((p, idx) => (
+          {prices && prices.length > 0 ? prices.map((p: any, idx: number) => (
             <div key={idx} className="bg-[var(--surface-base)] border border-[var(--border-base)] rounded-lg px-2 py-1 flex flex-col items-center">
-              <span className="text-[8px] font-bold text-[var(--text-secondary)] uppercase">{fuelTypeLabel(p)}</span>
+              <span className="text-[8px] font-bold text-[var(--text-secondary)] uppercase">
+                {fuelTypeLabel(p.fuelType ?? p.fuel_type ?? p.fuel_type_id ?? p)}
+              </span>
               <span className="text-[10px] font-black text-primary-500">{p.pricePerLiter || p.price_per_liter}</span>
             </div>
-          ))}
+          )) : <span className="text-[10px] text-text-muted">—</span>}
         </div>
       )
     }
@@ -122,13 +124,15 @@ export default function Nearby() {
       render: (val: any) => <span className="text-[12px]">{val?.district}, {val?.sector}</span>
     },
     {
-      id: 'fuelTypes',
+      id: 'prices',
       label: 'Fuel Options',
-      render: (types: string[]) => (
-        <div className="flex gap-1">
-          {types?.map((t, idx) => (
-            <span key={idx} className="text-[9px] font-bold bg-primary-500/10 text-primary-500 px-2 py-0.5 rounded uppercase">{t}</span>
-          ))}
+      render: (prices: any[]) => (
+        <div className="flex gap-1 flex-wrap">
+          {prices && prices.length > 0 ? prices.map((p: any, idx: number) => (
+            <span key={idx} className="text-[9px] font-bold bg-primary-500/10 text-primary-500 px-2 py-0.5 rounded uppercase">
+              {fuelTypeLabel(p)}
+            </span>
+          )) : <span className="text-[10px] text-text-muted">—</span>}
         </div>
       )
     }

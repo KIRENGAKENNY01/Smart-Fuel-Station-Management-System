@@ -437,23 +437,61 @@
         "responses": { "200": { "description": "User deleted" } }
       }
     },
+    "/api/stations/signup-options": {
+      "get": {
+        "tags": ["Stations"],
+        "summary": "List station id/name for manager self-registration (public)",
+        "responses": {
+          "200": {
+            "description": "Minimal station list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": { "type": "string" },
+                          "name": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/stations/nearby": {
       "get": {
         "tags": ["Stations"],
         "summary": "Find stations near coordinates",
+        "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "name": "lat", "in": "query", "required": true, "schema": { "type": "number" }, "example": -1.9441 },
           { "name": "lon", "in": "query", "required": true, "schema": { "type": "number" }, "example": 30.0619 },
           { "name": "distance", "in": "query", "schema": { "type": "integer", "default": 5000, "description": "Max distance in meters" } }
         ],
-        "responses": { "200": { "description": "Nearby stations with fuel prices" } }
+        "responses": {
+          "200": { "description": "Nearby stations with fuel prices" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
       }
     },
     "/api/stations": {
       "get": {
         "tags": ["Stations"],
         "summary": "List all stations",
-        "responses": { "200": { "description": "Station list" } }
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Station list" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
       },
       "post": {
         "tags": ["Stations"],
@@ -472,8 +510,13 @@
       "get": {
         "tags": ["Stations"],
         "summary": "Get station by ID",
+        "security": [{ "bearerAuth": [] }],
         "parameters": [{ "$ref": "#/components/parameters/ResourceId" }],
-        "responses": { "200": { "description": "Station details" }, "404": { "description": "Not found" } }
+        "responses": {
+          "200": { "description": "Station details" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "description": "Not found" }
+        }
       },
       "put": {
         "tags": ["Stations"],
@@ -515,34 +558,50 @@
       "get": {
         "tags": ["Fuel"],
         "summary": "List fuel types (PETROL, DIESEL)",
-        "responses": { "200": { "description": "Fuel types" } }
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Fuel types" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
       }
     },
     "/api/fuel/prices": {
       "get": {
         "tags": ["Fuel"],
         "summary": "Get all station fuel prices",
-        "responses": { "200": { "description": "Price list" } }
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Price list" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
       }
     },
     "/api/fuel/prices/{stationId}": {
       "get": {
         "tags": ["Fuel"],
         "summary": "Get prices for one station",
+        "security": [{ "bearerAuth": [] }],
         "parameters": [{ "$ref": "#/components/parameters/StationId" }],
-        "responses": { "200": { "description": "Station prices" } }
+        "responses": {
+          "200": { "description": "Station prices" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
       }
     },
     "/api/fuel/price-trend/{stationId}": {
       "get": {
         "tags": ["Fuel"],
         "summary": "Get price trend for a fuel type",
+        "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/StationId" },
           { "name": "fuelType", "in": "query", "required": true, "schema": { "type": "string" } },
           { "name": "range", "in": "query", "schema": { "type": "string", "enum": ["daily", "weekly", "monthly"] } }
         ],
-        "responses": { "200": { "description": "Price trend data" } }
+        "responses": {
+          "200": { "description": "Price trend data" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
       }
     },
     "/api/fuel/inventory/{stationId}": {

@@ -169,12 +169,15 @@ export const createUserByAdmin = async (data) => {
 };
 
 export const updateUserByAdmin = async (id, data) => {
-  const updates = { ...data, updated_at: Date.now() };
-  delete updates.password;
-  if (data.password) {
-    updates.password = await hashPassword(data.password);
-  }
-  const user = await User.findByIdAndUpdate(id, updates, { new: true });
+  const updates = { updated_at: Date.now() };
+  if (data.full_name !== undefined) updates.full_name = data.full_name;
+  if (data.email !== undefined) updates.email = data.email;
+  if (data.role !== undefined) updates.role = data.role;
+  if (data.status !== undefined) updates.status = data.status;
+  if (data.station_id !== undefined) updates.station_id = data.station_id;
+  if (data.password) updates.password = await hashPassword(data.password);
+
+  const user = await User.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
   if (!user) throw new Error("User not found");
   return sanitizeUser(user);
 };
@@ -191,18 +194,27 @@ export const suspendUser = async (id) => {
   return sanitizeUser(user);
 };
 
+export const unsuspendUser = async (id) => {
+  const user = await User.findByIdAndUpdate(id, { status: "ACTIVE", updated_at: Date.now() }, { new: true });
+  if (!user) throw new Error("User not found");
+  return sanitizeUser(user);
+};
+
 export const getProfile = async (userId) => {
   const user = await User.findById(userId);
   if (!user) throw new Error("User not found");
   return sanitizeUser(user);
 };
 
-export const updateProfile = async (userId, { full_name, email }) => {
-  const user = await User.findByIdAndUpdate(
-    userId,
-    { full_name, email, updated_at: Date.now() },
-    { new: true }
-  );
+export const updateProfile = async (userId, data) => {
+  const updates = { updated_at: Date.now() };
+  if (data.full_name !== undefined) updates.full_name = data.full_name;
+  if (data.email !== undefined) {
+    const existing = await User.findOne({ email: data.email, _id: { $ne: userId } });
+    if (existing) throw new Error("Email is already in use");
+    updates.email = data.email;
+  }
+  const user = await User.findByIdAndUpdate(userId, updates, { new: true, runValidators: true });
   if (!user) throw new Error("User not found");
   return sanitizeUser(user);
 };
@@ -212,6 +224,9 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
   if (!user) throw new Error("User not found");
   const isMatch = await comparePassword(currentPassword, user.password);
   if (!isMatch) throw new Error("Current password is incorrect");
+  if (currentPassword === newPassword) {
+    throw new Error("New password must be different from current password");
+  }
   user.password = await hashPassword(newPassword);
   user.updated_at = Date.now();
   await user.save();

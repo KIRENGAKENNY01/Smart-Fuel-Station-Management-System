@@ -3,6 +3,7 @@ import { Mail, Lock, ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { loginSchema, validateForm } from '../utils/validation';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -21,10 +22,17 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const check = validateForm(loginSchema, { email, password });
+    if (!check.success) {
+      setError(check.error);
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const res = await AuthService.login({ email, password });
+      const res = await AuthService.login(check.data);
       const { user, tokens } = res.data;
       
       localStorage.setItem('token', tokens.accessToken);

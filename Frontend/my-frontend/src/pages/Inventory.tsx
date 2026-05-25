@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { FuelService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { fuelTypeLabel } from '../utils/format';
+import { fuelSupplySchema, fuelPriceUpdateSchema, validateForm } from '../utils/validation';
 
 export default function Inventory() {
   const { stationId } = useAuth();
@@ -11,6 +12,7 @@ export default function Inventory() {
   const [items, setItems] = useState<any[]>([]);
   const [supplyForm, setSupplyForm] = useState({ fuel_type_id: '', liters_added: '' });
   const [priceForm, setPriceForm] = useState({ fuel_type_id: '', price: '' });
+  const [formError, setFormError] = useState('');
 
   const load = async () => {
     if (!sid) return;
@@ -24,23 +26,49 @@ export default function Inventory() {
 
   const addStock = async (e: React.FormEvent) => {
     e.preventDefault();
-    await FuelService.addSupply({
-      station_id: sid,
-      fuel_type_id: supplyForm.fuel_type_id,
-      liters_added: parseFloat(supplyForm.liters_added),
-    });
-    setSupplyForm({ fuel_type_id: '', liters_added: '' });
-    load();
+    setFormError('');
+    const check = validateForm(fuelSupplySchema, supplyForm);
+    if (!check.success) {
+      setFormError(check.error);
+      return;
+    }
+    try {
+      await FuelService.addSupply({
+        station_id: sid,
+        fuel_type_id: check.data.fuel_type_id,
+        liters_added: check.data.liters_added,
+      });
+      setSupplyForm({ fuel_type_id: '', liters_added: '' });
+      load();
+    } catch (err: unknown) {
+      setFormError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+          'Failed to add stock'
+      );
+    }
   };
 
   const updatePrice = async (e: React.FormEvent) => {
     e.preventDefault();
-    await FuelService.updatePrice({
-      station_id: sid,
-      fuel_type_id: priceForm.fuel_type_id,
-      price: parseFloat(priceForm.price),
-    });
-    load();
+    setFormError('');
+    const check = validateForm(fuelPriceUpdateSchema, priceForm);
+    if (!check.success) {
+      setFormError(check.error);
+      return;
+    }
+    try {
+      await FuelService.updatePrice({
+        station_id: sid,
+        fuel_type_id: check.data.fuel_type_id,
+        price: check.data.price,
+      });
+      load();
+    } catch (err: unknown) {
+      setFormError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+          'Failed to update price'
+      );
+    }
   };
 
   return (
@@ -76,6 +104,7 @@ export default function Inventory() {
         })}
       </div>
 
+      {formError && <p className="text-danger text-sm mb-4">{formError}</p>}
       <div className="grid md:grid-cols-2 gap-6 max-w-3xl">
         <form onSubmit={addStock} className="glass-card p-6 space-y-3">
           <h4 className="font-bold">Add fuel stock</h4>

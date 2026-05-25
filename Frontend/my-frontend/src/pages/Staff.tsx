@@ -14,7 +14,6 @@ export default function Staff() {
     email: '',
     password: '',
     role: 'MANAGER',
-    station_id: '',
   });
 
   const load = async () => {
@@ -28,7 +27,7 @@ export default function Staff() {
     setStations(s.data.data || []);
   };
 
-  const stationName = (id: string) => stations.find((s) => s._id === id)?.name || 'Unknown station';
+  const stationName = (id: string) => stations.find((s: any) => s._id === id)?.name || id?.slice?.(-6) || 'Unknown';
 
   const handleApprove = async (userId: string, requestedStationId: string) => {
     try {
@@ -55,7 +54,7 @@ export default function Staff() {
   }, []);
 
   const resetForm = () => {
-    setForm({ full_name: '', email: '', password: '', role: 'MANAGER', station_id: '' });
+    setForm({ full_name: '', email: '', password: '', role: 'MANAGER' });
     setEditing(null);
     setShowForm(false);
   };
@@ -68,17 +67,17 @@ export default function Staff() {
           full_name: form.full_name,
           email: form.email,
           role: form.role,
-          station_id: form.station_id || null,
           ...(form.password ? { password: form.password } : {}),
         });
-        if (form.role === 'MANAGER' && form.station_id) {
-          await StationService.assignManager(form.station_id, editing._id);
-        }
       } else {
-        const created = await AuthService.createUser(form);
-        if (form.role === 'MANAGER' && form.station_id && created.data.data?._id) {
-          await StationService.assignManager(form.station_id, created.data.data._id);
-        }
+        // Generate a temporary password if none provided
+        const password = form.password || `Temp@${Math.random().toString(36).slice(-8)}1`;
+        await AuthService.createUser({
+          full_name: form.full_name,
+          email: form.email,
+          password,
+          role: form.role,
+        });
       }
       resetForm();
       load();
@@ -141,22 +140,20 @@ export default function Staff() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="glass-card p-6 mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h3 className="md:col-span-2 font-bold text-lg">{editing ? 'Edit User' : 'Create User'}</h3>
           <input className="glass-input" placeholder="Full name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required />
           <input className="glass-input" type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-          <input className="glass-input" type="password" placeholder={editing ? 'New password (optional)' : 'Password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editing} />
           <select className="glass-input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-            <option value="DRIVER">Driver</option>
             <option value="MANAGER">Station Manager</option>
             <option value="ADMIN">Admin</option>
           </select>
-          {form.role === 'MANAGER' && (
-            <select className="glass-input md:col-span-2" value={form.station_id} onChange={(e) => setForm({ ...form, station_id: e.target.value })}>
-              <option value="">Assign station</option>
-              {stations.map((s) => (
-                <option key={s._id} value={s._id}>{s.name}</option>
-              ))}
-            </select>
-          )}
+          <input
+            className="glass-input"
+            type="password"
+            placeholder={editing ? 'New password (leave blank to keep current)' : 'Temporary password (optional — auto-generated if blank)'}
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+          />
           <div className="md:col-span-2 flex gap-2">
             <button type="submit" className="px-6 py-2 bg-primary-500 text-primary-900 font-bold rounded-lg">{editing ? 'Update' : 'Create'}</button>
             <button type="button" onClick={resetForm} className="px-6 py-2 border rounded-lg">Cancel</button>
@@ -191,9 +188,12 @@ export default function Staff() {
                   </span>
                 </td>
                 <td className="p-3 flex gap-2">
-                  <button type="button" className="text-primary-500 font-medium" onClick={() => { setEditing(u); setForm({ full_name: u.full_name, email: u.email, password: '', role: u.role, station_id: u.station_id || '' }); setShowForm(true); }}>Edit</button>
+                  <button type="button" className="text-primary-500 font-medium" onClick={() => { setEditing(u); setForm({ full_name: u.full_name, email: u.email, password: '', role: u.role }); setShowForm(true); }}>Edit</button>
                   {u.status !== 'SUSPENDED' && (
                     <button type="button" className="text-danger font-medium" onClick={async () => { await AuthService.suspendUser(u._id); load(); }}>Suspend</button>
+                  )}
+                  {u.status === 'SUSPENDED' && (
+                    <button type="button" className="text-chart-highlight font-medium" onClick={async () => { await AuthService.unsuspendUser(u._id); load(); }}>Unsuspend</button>
                   )}
                   <button type="button" className="text-text-muted" onClick={async () => { if (confirm('Delete user?')) { await AuthService.deleteUser(u._id); load(); } }}>Delete</button>
                 </td>

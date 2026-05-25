@@ -115,15 +115,20 @@ export default function Dashboard() {
               {role === 'ADMIN' && (
                 <button
                   type="button"
-                  onClick={() =>
-                    ReportService.downloadAdmin('daily').then((r) => {
-                      const url = URL.createObjectURL(r.data);
+                  onClick={async () => {
+                    try {
+                      const r = await ReportService.downloadAdmin('daily');
+                      const blob = r.data instanceof Blob ? r.data : new Blob([JSON.stringify(r.data, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
                       const a = document.createElement('a');
                       a.href = url;
                       a.download = 'admin-report.json';
                       a.click();
-                    })
-                  }
+                      URL.revokeObjectURL(url);
+                    } catch {
+                      alert('Failed to export report');
+                    }
+                  }}
                   className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-primary-900 font-medium rounded-lg"
                 >
                   <Download className="w-4 h-4" />

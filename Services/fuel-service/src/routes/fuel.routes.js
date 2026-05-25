@@ -1,26 +1,60 @@
 import express from "express";
 import * as FuelController from "../controllers/fuel.controller.js";
-import { authMiddleware, authorize, Roles } from "@smart-fuel/shared";
+import {
+  authMiddleware,
+  authorize,
+  Roles,
+  validateBody,
+  validateQuery,
+  validateParams,
+  stationIdParam,
+  fuelSupplySchema,
+  fuelPriceSchema,
+  fuelInventoryLevelSchema,
+  stockUpdateSchema,
+  priceTrendQuerySchema,
+} from "@smart-fuel/shared";
 
 const router = express.Router();
 
-// Public: View real-time prices
-router.get("/types", FuelController.getFuelTypes);
-router.get("/prices", FuelController.getAllPrices);
-router.get("/prices/:stationId", FuelController.getStationPrices);
-router.get("/price-trend/:stationId", FuelController.getPriceTrend);
+router.get("/internal/prices", FuelController.getAllPrices);
+router.get("/internal/types", FuelController.getFuelTypes);
 
-// Private: Check inventory at my station
-router.get("/inventory/:stationId", authMiddleware, authorize([Roles.ADMIN, Roles.MANAGER]), FuelController.getStationInventory);
+router.get("/types", authMiddleware, FuelController.getFuelTypes);
+router.get("/prices", authMiddleware, FuelController.getAllPrices);
+router.get("/prices/:stationId", authMiddleware, validateParams(stationIdParam), FuelController.getStationPrices);
+router.get(
+  "/price-trend/:stationId",
+  authMiddleware,
+  validateParams(stationIdParam),
+  validateQuery(priceTrendQuerySchema),
+  FuelController.getPriceTrend
+);
 
-// Private: Log a new supply delivery
-router.post("/supply", authMiddleware, authorize([Roles.ADMIN, Roles.MANAGER]), FuelController.addSupply);
+router.get(
+  "/inventory/:stationId",
+  authMiddleware,
+  authorize([Roles.ADMIN, Roles.MANAGER]),
+  validateParams(stationIdParam),
+  FuelController.getStationInventory
+);
 
-// Admin/Manager: Update fuel prices
-router.put("/price", authMiddleware, authorize([Roles.ADMIN, Roles.MANAGER]), FuelController.changePrice);
-router.put("/inventory-level", authMiddleware, authorize([Roles.ADMIN, Roles.MANAGER]), FuelController.setStockLevel);
+router.post(
+  "/supply",
+  authMiddleware,
+  authorize([Roles.ADMIN, Roles.MANAGER]),
+  validateBody(fuelSupplySchema),
+  FuelController.addSupply
+);
+router.put("/price", authMiddleware, authorize([Roles.ADMIN, Roles.MANAGER]), validateBody(fuelPriceSchema), FuelController.changePrice);
+router.put(
+  "/inventory-level",
+  authMiddleware,
+  authorize([Roles.ADMIN, Roles.MANAGER]),
+  validateBody(fuelInventoryLevelSchema),
+  FuelController.setStockLevel
+);
 
-// Internal: Update stock (usually called by Transaction Service)
-router.put("/stock-update", FuelController.updateInventory);
+router.put("/stock-update", validateBody(stockUpdateSchema), FuelController.updateInventory);
 
 export default router;

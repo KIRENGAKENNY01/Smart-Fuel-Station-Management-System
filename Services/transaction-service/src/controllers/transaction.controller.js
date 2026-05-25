@@ -4,9 +4,6 @@ import { response } from "@smart-fuel/shared";
 export const createTransaction = async (req, res) => {
   try {
     const { stationId, fuelType, liters } = req.body;
-    if (!stationId || !fuelType || !liters) {
-      return response(res, 400, "stationId, fuelType, and liters are required");
-    }
 
     const transactionData = {
       ...req.body,
@@ -71,23 +68,40 @@ export const getManagerDashboard = async (req, res) => {
 export const confirmTransaction = async (req, res) => {
   try {
     const txn = await TransactionService.confirmPayment(req.params.id, req.user);
+
+    // Try to email the receipt to the driver
+    let emailResult = null;
     try {
-      const driverRes = await import("axios").then((m) =>
-        m.default.get(`${process.env.AUTH_SERVICE_URL || "http://localhost:5001"}/api/auth/users/internal/${txn.driver_id}`)
-      );
-      const driverEmail = driverRes.data?.data?.email;
+      // First try to get driver email from auth service
+      let driverEmail = null;
+      try {
+        const driverRes = await import("axios").then((m) =>
+          m.default.get(`${process.env.AUTH_SERVICE_URL || "http://localhost:5001"}/api/auth/users/internal/${txn.driver_id}`)
+        );
+        driverEmail = driverRes.data?.data?.email;
+      } catch (fetchErr) {
+        console.warn("[confirmTransaction] Could not fetch driver email:", fetchErr.message);
+      }
+
+      // Fall back to email from request body
+      if (!driverEmail && req.body.email) driverEmail = req.body.email;
+
       if (driverEmail) {
-        await TransactionService.emailReceiptToDriver(txn._id, txn.driver_id, driverEmail);
+        emailResult = await TransactionService.emailReceiptToDriver(txn._id, txn.driver_id, driverEmail);
+        console.log(`[confirmTransaction] Receipt emailed to ${driverEmail}`);
+      } else {
+        console.warn("[confirmTransaction] No driver email found — skipping receipt email");
       }
-    } catch (_) {
-      if (req.body.email) {
-        await TransactionService.emailReceiptToDriver(txn._id, txn.driver_id, req.body.email);
-      }
+    } catch (emailErr) {
+      console.error("[confirmTransaction] Email failed:", emailErr.message);
+      // Don't fail the confirmation just because email failed
     }
+
     response(res, 200, "Payment confirmed", {
       transactionId: txn._id,
       status: txn.status,
       totalAmount: txn.amount,
+      ...(emailResult?.previewUrl ? { emailPreview: emailResult.previewUrl } : {}),
     });
   } catch (err) {
     response(res, 400, err.message);
@@ -153,8 +167,12 @@ export const emailReceipt = async (req, res) => {
       req.user.id,
       email
     );
-    response(res, 200, `Receipt sent to ${result.email}`, result);
+    response(res, 200, `Receipt sent to ${result.email}`, {
+      email: result.email,
+      ...(result.previewUrl ? { previewUrl: result.previewUrl } : {}),
+    });
   } catch (err) {
+    console.error("[emailReceipt]", err.message);
     response(res, 400, err.message);
   }
 };

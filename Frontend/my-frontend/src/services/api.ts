@@ -44,6 +44,7 @@ export const AuthService = {
   updateUser: (id: string, data: object) => api.put(`/auth/users/${id}`, data),
   deleteUser: (id: string) => api.delete(`/auth/users/${id}`),
   suspendUser: (id: string) => api.patch(`/auth/users/${id}/suspend`),
+  unsuspendUser: (id: string) => api.patch(`/auth/users/${id}/unsuspend`),
   getPendingManagers: () => api.get('/auth/users/pending/managers'),
   approveManager: (id: string, stationId?: string) =>
     api.patch(`/auth/users/${id}/approve`, { station_id: stationId }),
@@ -65,6 +66,7 @@ export const FuelService = {
 };
 
 export const StationService = {
+  getSignupOptions: () => api.get('/stations/signup-options'),
   getNearby: (lat: number, lon: number, distance = 5000) =>
     api.get(`/stations/nearby?lat=${lat}&lon=${lon}&distance=${distance}`),
   getAll: () => api.get('/stations'),

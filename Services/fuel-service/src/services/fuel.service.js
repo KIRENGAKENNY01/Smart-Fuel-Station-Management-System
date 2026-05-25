@@ -26,7 +26,7 @@ const checkStockAlerts = async (inventory, previousLiters = null) => {
 
   if (inventory.available_liters < threshold) {
     try {
-      const stationRes = await axios.get(`${STATION_SERVICE}/api/stations/${stationId}`);
+      const stationRes = await axios.get(`${STATION_SERVICE}/api/stations/internal/${stationId}`);
       const managerId = stationRes.data?.data?.manager_id;
       const msg = `Low stock at station: ${inventory.available_liters}L remaining (${inventory.fuel_type_id})`;
       if (managerId) await sendAlert(managerId, "LOW_STOCK", msg);
@@ -42,7 +42,7 @@ const checkStockAlerts = async (inventory, previousLiters = null) => {
     const drop = previousLiters - inventory.available_liters;
     if (drop > 1000) {
       try {
-        const stationRes = await axios.get(`${STATION_SERVICE}/api/stations/${stationId}`);
+        const stationRes = await axios.get(`${STATION_SERVICE}/api/stations/internal/${stationId}`);
         const managerId = stationRes.data?.data?.manager_id;
         const msg = `Sudden inventory drop: -${drop}L`;
         if (managerId) await sendAlert(managerId, "INVENTORY_DROP", msg);
@@ -50,7 +50,7 @@ const checkStockAlerts = async (inventory, previousLiters = null) => {
     }
     if (drop > 2000) {
       try {
-        const stationRes = await axios.get(`${STATION_SERVICE}/api/stations/${stationId}`);
+        const stationRes = await axios.get(`${STATION_SERVICE}/api/stations/internal/${stationId}`);
         const managerId = stationRes.data?.data?.manager_id;
         if (managerId) {
           await sendAlert(managerId, "ABNORMAL_CONSUMPTION", `Abnormal fuel consumption detected: -${drop}L`);
@@ -121,7 +121,9 @@ export const getAllFuelTypes = async () => {
 };
 
 export const getPrices = async () => {
-    return await FuelInventory.find().select('station_id fuel_type_id price_per_liter available_liters');
+    return await FuelInventory.find()
+      .select('station_id fuel_type_id price_per_liter available_liters')
+      .populate('fuel_type_id');
 };
 
 export const getPricesByStation = async (stationId) => {

@@ -1,5 +1,5 @@
 import * as FuelService from "../services/fuel.service.js";
-import { response } from "@smart-fuel/shared";
+import { response, resolveFuelTypeLabel } from "@smart-fuel/shared";
 
 export const getStationInventory = async (req, res) => {
   try {
@@ -37,16 +37,32 @@ export const getAllPrices = async (req, res) => {
   }
 };
 
+import FuelType from "../models/fuel.model.js";
+
 export const getStationPrices = async (req, res) => {
   try {
     const rawPrices = await FuelService.getPricesByStation(req.params.stationId);
-    const prices = rawPrices.map(p => ({
-      fuelTypeId: p.fuel_type_id?._id || p.fuel_type_id,
-      fuelType: p.fuel_type_id?.fuelTypes || p.fuel_type_id?.name || "Fuel",
-      pricePerLiter: p.price_per_liter,
-      availableLiters: p.available_liters,
-      lastUpdated: p.updated_at || Date.now()
-    }));
+    
+    // We can pre-fetch all fuel types just to be safe
+    const allTypes = await FuelType.find();
+    
+    const prices = rawPrices.map(p => {
+      let fuelTypeLabel = resolveFuelTypeLabel(p.fuel_type_id);
+      if (fuelTypeLabel === "Unknown") {
+        const id = p.fuel_type_id?._id || p.fuel_type_id;
+        const match = allTypes.find(t => String(t._id) === String(id));
+        if (match) fuelTypeLabel = resolveFuelTypeLabel(match);
+      }
+      
+      return {
+        fuelTypeId: p.fuel_type_id?._id || p.fuel_type_id,
+        fuelType: fuelTypeLabel,
+        pricePerLiter: p.price_per_liter,
+        availableLiters: p.available_liters,
+        lastUpdated: p.updated_at || Date.now()
+      };
+    });
+    
     response(res, 200, "Station prices retrieved", prices);
   } catch (err) {
     response(res, 500, err.message);

@@ -10,6 +10,19 @@ export const createStation = async (req, res) => {
   }
 };
 
+export const getSignupOptions = async (req, res) => {
+  try {
+    const stations = await StationService.getAllStations();
+    const options = stations.map((s) => {
+      const doc = s.toJSON ? s.toJSON() : s;
+      return { _id: doc._id, name: doc.name };
+    });
+    response(res, 200, "Stations available for manager registration", options);
+  } catch (err) {
+    response(res, 500, err.message);
+  }
+};
+
 export const getNearBy = async (req, res) => {
   try {
     const { lat, lon, distance } = req.query;

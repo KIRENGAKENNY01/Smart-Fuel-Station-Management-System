@@ -1,6 +1,63 @@
 import Transaction from "../models/transaction.model.js";
 import mongoose from "mongoose";
 import axios from "axios";
+import nodemailer from "nodemailer";
+
+// ─── SMTP Transporter (singleton, initialized once at startup) ───────────────
+let _transporter = null;
+let _fromAddress = "noreply@smartfuel.com";
+
+const getTransporter = async () => {
+  if (_transporter) return { transporter: _transporter, from: _fromAddress };
+
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  // Use real SMTP if all credentials are provided
+  if (host && user && pass && host !== "smtp.ethereal.email") {
+    _transporter = nodemailer.createTransport({
+      host,
+      port: parseInt(process.env.SMTP_PORT || "587"),
+      secure: process.env.SMTP_SECURE === "true",
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false },
+    });
+
+    // Verify the connection before caching
+    try {
+      await _transporter.verify();
+      console.log(`[SMTP] Connected to ${host} as ${user}`);
+    } catch (verifyErr) {
+      _transporter = null;
+      console.error(`[SMTP] Connection failed for ${host}:`, verifyErr.message);
+      throw new Error(`SMTP connection failed: ${verifyErr.message}`);
+    }
+
+    _fromAddress = process.env.SMTP_FROM || user;
+    return { transporter: _transporter, from: _fromAddress };
+  }
+
+  // Fall back to Ethereal test account
+  try {
+    const testAccount = await nodemailer.createTestAccount();
+    _transporter = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: { user: testAccount.user, pass: testAccount.pass },
+    });
+    _fromAddress = testAccount.user;
+    console.log(`[SMTP Ethereal] Test account ready: ${testAccount.user}`);
+    console.log(`[SMTP Ethereal] View sent emails at: https://ethereal.email`);
+  } catch (err) {
+    console.error("[SMTP Ethereal] Failed to create test account:", err.message);
+    throw new Error("Email service unavailable — could not initialize SMTP transporter");
+  }
+
+  return { transporter: _transporter, from: _fromAddress };
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 const NOTIFICATION_SERVICE = process.env.NOTIFICATION_SERVICE_URL || "http://localhost:5006";
 const STATION_SERVICE = process.env.STATION_SERVICE_URL || "http://localhost:5002";
@@ -46,7 +103,7 @@ export const formatReceipt = (txn) => ({
 
 export const processPayment = async (data) => {
   // 1. Fetch current price from fuel-service
-  const pricesRes = await axios.get(`http://localhost:5003/api/fuel/prices`);
+  const pricesRes = await axios.get(`http://localhost:5003/api/fuel/internal/prices`);
   const prices = pricesRes.data.data || pricesRes.data; // Handle the response format safely
 
   // Find the exact fuel inventory for this station and fuel type
@@ -80,7 +137,7 @@ export const processPayment = async (data) => {
   );
 
   try {
-    const stationRes = await axios.get(`${STATION_SERVICE}/api/stations/${data.station_id}`);
+    const stationRes = await axios.get(`${STATION_SERVICE}/api/stations/internal/${data.station_id}`);
     const managerId = stationRes.data?.data?.manager_id;
     if (managerId) {
       await sendNotification(
@@ -102,7 +159,7 @@ export const confirmPayment = async (transactionId, manager) => {
   if (!txn) throw new Error("Transaction not found");
   if (txn.status !== "PENDING") throw new Error("Transaction is not pending confirmation");
 
-  const stationRes = await axios.get(`${STATION_SERVICE}/api/stations/${txn.station_id}`);
+  const stationRes = await axios.get(`${STATION_SERVICE}/api/stations/internal/${txn.station_id}`);
   const station = stationRes.data?.data;
   const managerStationId = manager.station_id ? String(manager.station_id) : null;
   const isAssigned =
@@ -142,7 +199,7 @@ export const confirmPayment = async (transactionId, manager) => {
   );
 
   try {
-    const stationRes = await axios.get(`${STATION_SERVICE}/api/stations/${txn.station_id}`);
+    const stationRes = await axios.get(`${STATION_SERVICE}/api/stations/internal/${txn.station_id}`);
     const managerId = stationRes.data?.data?.manager_id;
     if (managerId) {
       await sendNotification(
@@ -177,13 +234,41 @@ export const emailReceiptToDriver = async (transactionId, userId, email) => {
   const txn = await Transaction.findById(transactionId);
   if (!txn) throw new Error("Receipt not found");
   const receipt = formatReceipt(txn);
-  console.log(`[EMAIL] Receipt ${receipt.receiptId} sent to ${email}`);
+
+  const { transporter, from } = await getTransporter();
+  const info = await transporter.sendMail({
+    from: `"XYZ.ltd" <${from}>`,
+    to: email,
+    subject: `Fuel Purchase Receipt #${String(receipt.receiptId).slice(-8).toUpperCase()}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px">
+        <h2 style="color:#16a34a;margin-bottom:4px">XYZ.ltd — Fuel Receipt</h2>
+        <p style="color:#6b7280;font-size:13px;margin-top:0">Receipt #${String(receipt.receiptId).slice(-8).toUpperCase()}</p>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0"/>
+        <table style="width:100%;font-size:14px;border-collapse:collapse">
+          <tr><td style="padding:6px 0;color:#6b7280">Date</td><td style="text-align:right">${new Date(receipt.issuedAt).toLocaleString()}</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280">Volume</td><td style="text-align:right">${receipt.liters} L</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280">Price / Liter</td><td style="text-align:right">${receipt.pricePerLiter.toLocaleString()} RWF</td></tr>
+          <tr style="font-weight:bold;font-size:16px"><td style="padding:10px 0">Total</td><td style="text-align:right;color:#16a34a">${receipt.totalAmount.toLocaleString()} RWF</td></tr>
+          <tr><td style="padding:6px 0;color:#6b7280">Status</td><td style="text-align:right">${receipt.status}</td></tr>
+        </table>
+        <p style="font-size:12px;color:#9ca3af;margin-top:24px">Thank you for fueling with XYZ.ltd</p>
+      </div>
+    `,
+  });
+
+  console.log(`[EMAIL] Receipt sent to ${email} — Message-ID: ${info.messageId}`);
+  const previewUrl = nodemailer.getTestMessageUrl(info);
+  if (previewUrl) {
+    console.log(`[EMAIL Ethereal] Preview URL: ${previewUrl}`);
+  }
+
   await sendNotification(
     userId,
     "RECEIPT",
     `Receipt emailed to ${email} for payment #${String(receipt.receiptId).slice(-8).toUpperCase()}`
   );
-  return { email, receipt };
+  return { email, receipt, previewUrl: previewUrl || null };
 };
 
 const toObjectId = (id) => {
@@ -201,7 +286,7 @@ const getStationName = async (stationId) => {
   const key = String(stationId);
   if (stationNameCache.has(key)) return stationNameCache.get(key);
   try {
-    const res = await axios.get(`${STATION_SERVICE}/api/stations/${key}`);
+    const res = await axios.get(`${STATION_SERVICE}/api/stations/internal/${key}`);
     const name = res.data?.data?.name || "Station";
     stationNameCache.set(key, name);
     return name;
@@ -446,13 +531,15 @@ export const getUserAnalytics = async (userId) => {
 
   let mostUsedFuelType = "N/A";
   try {
-    const typesRes = await axios.get("http://localhost:5003/api/fuel/types");
+    const fuelServiceUrl = process.env.FUEL_SERVICE_URL || "http://localhost:5003";
+    const typesRes = await axios.get(`${fuelServiceUrl}/api/fuel/internal/types`);
     const types = typesRes.data?.data || [];
     const topId = String(results[0]._id);
     const match = types.find((t) => String(t._id) === topId);
     if (match?.fuelTypes) mostUsedFuelType = match.fuelTypes;
+    else if (match?.name) mostUsedFuelType = match.name;
   } catch (_) {
-    mostUsedFuelType = String(results[0]._id).slice(-6);
+    // If fuel service is unreachable, keep N/A
   }
 
   return {

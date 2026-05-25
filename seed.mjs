@@ -43,7 +43,9 @@ const seed = async () => {
 
     // 3. SEED FUEL SERVICE (Types & Inventory)
     const fuelConn = await mongoose.createConnection(DB_FUEL).asPromise();
-    const FuelTypeSchema = new mongoose.Schema({ name: String, code: String });
+    const FuelTypeSchema = new mongoose.Schema({
+      fuelTypes: { type: String, enum: ["PETROL", "DIESEL"], required: true },
+    });
     const FuelInventorySchema = new mongoose.Schema({ station_id: mongoose.Schema.Types.ObjectId, fuel_type_id: mongoose.Schema.Types.ObjectId, available_liters: Number, price_per_liter: Number });
     
     const FuelType = fuelConn.model('FuelType', FuelTypeSchema);
@@ -52,8 +54,8 @@ const seed = async () => {
     await FuelType.deleteMany({});
     await FuelInventory.deleteMany({});
 
-    const petrol = await FuelType.create({ name: "Petrol", code: "P95" });
-    const diesel = await FuelType.create({ name: "Diesel", code: "D10" });
+    const petrol = await FuelType.create({ fuelTypes: "PETROL" });
+    const diesel = await FuelType.create({ fuelTypes: "DIESEL" });
 
     await FuelInventory.create([
       { station_id: station._id, fuel_type_id: petrol._id, available_liters: 5000, price_per_liter: 1540 },

@@ -1,4 +1,5 @@
 import Station from "../models/station.model.js";
+import { resolveFuelTypeLabel } from "@smart-fuel/shared";
 
 export const createStation = async (data) => {
   const payload = { ...data };
@@ -30,7 +31,7 @@ export const findNearbyStations = async (longitude, latitude, maxDistance = 5000
 
   let fuelPrices = [];
   try {
-    const res = await fetch("http://localhost:5003/api/fuel/prices");
+    const res = await fetch("http://localhost:5003/api/fuel/internal/prices");
     if (res.ok) {
       const data = await res.json();
       fuelPrices = data.data || [];
@@ -48,11 +49,12 @@ export const findNearbyStations = async (longitude, latitude, maxDistance = 5000
       name: doc.name,
       location: doc.location,
       activeStatus: doc.status || "ACTIVE",
-      fuelTypes: stationFuels.map(f => f.fuel_type_id?.fuelTypes || f.fuel_type_id?.name || "Fuel"),
-      fuels: stationFuels.map(f => ({
-        fuelType: f.fuel_type_id?.fuelTypes || f.fuel_type_id?.name || "Fuel",
+      fuelTypes: stationFuels.map((f) => resolveFuelTypeLabel(f.fuel_type_id)).filter(Boolean),
+      fuels: stationFuels.map((f) => ({
+        fuelTypeId: f.fuel_type_id?._id || f.fuel_type_id,
+        fuelType: resolveFuelTypeLabel(f.fuel_type_id) || "Unknown",
         pricePerLiter: f.price_per_liter,
-        availableLiters: f.available_liters
+        availableLiters: f.available_liters,
       })),
       longitude: doc.longitude,
       latitude: doc.latitude

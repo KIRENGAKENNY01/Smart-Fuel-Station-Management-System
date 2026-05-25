@@ -65,4 +65,21 @@
     border: 1px solid var(--border-base);
     color: var(--text-primary);
   }
+
+  select.glass-input,
+  select.glass-select {
+    cursor: pointer;
+    color-scheme: light;
+  }
+
+  .dark select.glass-input,
+  .dark select.glass-select {
+    color-scheme: dark;
+  }
+
+  select.glass-input option,
+  select.glass-select option {
+    color: var(--text-primary);
+    background-color: var(--bg-base);
+  }
 }
