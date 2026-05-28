@@ -1,8 +1,6 @@
-export const sanitizeUser = (user) => { 
-  if(!user) return null; 
-
-  const obj = user.toObject();//turn document into js object  
-  delete obj.password; 
-  
-  return obj; 
-}
+export const sanitizeUser = (user) => {
+  if (!user) return null;
+  // Prisma returns plain objects — no .toObject() needed
+  const { password, ...safe } = user;
+  return safe;
+};

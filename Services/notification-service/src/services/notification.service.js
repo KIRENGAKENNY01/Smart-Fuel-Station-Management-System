@@ -1,20 +1,27 @@
-import Notification from "../models/notification.model.js";
-import mongoose from "mongoose";
+import prisma from '../lib/prisma.js';
 
 export const getUserNotifications = async (userId) => {
-  let uid = userId;
-  try {
-    uid = new mongoose.Types.ObjectId(String(userId));
-  } catch (_) {
-    return [];
-  }
-  return await Notification.find({ user_id: uid }).sort({ created_at: -1 });
+  return prisma.notification.findMany({
+    where: { user_id: userId },
+    orderBy: { created_at: 'desc' },
+  });
 };
 
 export const createNotification = async (data) => {
-  return await Notification.create(data);
+  return prisma.notification.create({
+    data: {
+      user_id: data.user_id,
+      type: data.type,
+      message: data.message,
+      transaction_id: data.transaction_id || null,
+      is_read: false,
+    },
+  });
 };
 
 export const markAsRead = async (notificationId) => {
-  return await Notification.findByIdAndUpdate(notificationId, { is_read: true }, { new: true });
+  return prisma.notification.update({
+    where: { id: notificationId },
+    data: { is_read: true },
+  });
 };

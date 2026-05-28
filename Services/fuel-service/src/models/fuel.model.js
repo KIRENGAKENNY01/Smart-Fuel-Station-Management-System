@@ -1,11 +1,4 @@
-import mongoose from "mongoose"; 
+import prisma from '../lib/prisma.js';
 
-const fuelTypeSchema= new mongoose.Schema({
-    fuelTypes:{
-        type:String,
-        enum:["DIESEL","PETROL"],
-        required:true
-    }
-})
-
-export default mongoose.model("FuelType",fuelTypeSchema)
+export const FuelType = prisma.fuelType;
+export default prisma.fuelType;

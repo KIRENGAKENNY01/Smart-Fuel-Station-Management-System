@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model FuelType {
+  id        String          @id @default(cuid()) @map("_id")
+  name      FuelTypeName
+  inventory FuelInventory[]
+  supplies  Supply[]
+
+  @@map("fuel_types")
+}
+
+model FuelInventory {
+  id                  String   @id @default(cuid()) @map("_id")
+  fuel_type_id        String
+  station_id          String
+  available_liters    Float
+  price_per_liter     Float
+  max_capacity        Float    @default(10000)
+  low_stock_threshold Float    @default(500)
+  updated_at          DateTime @updatedAt
+  fuel_type           FuelType @relation(fields: [fuel_type_id], references: [id])
+
+  @@unique([station_id, fuel_type_id])
+  @@map("fuel_inventory")
+}
+
+model Supply {
+  id           String   @id @default(cuid()) @map("_id")
+  station_id   String
+  fuel_type_id String
+  liters_added Float
+  cost_price   Float?
+  supplied_at  DateTime @default(now())
+  fuel_type    FuelType @relation(fields: [fuel_type_id], references: [id])
+
+  @@map("supplies")
+}
+
+enum FuelTypeName {
+  PETROL
+  DIESEL
+}

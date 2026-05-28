@@ -1,30 +1,14 @@
-import mongoose from "mongoose"
+import { createModel } from "@smart-fuel/shared/config/postgresModel.js";
 
-const fuelReportSchema = new mongoose.Schema({
-    station_id:{
-        type:mongoose.Schema.Types.ObjectId,
-        required:true
-    },
-    fuel_type_id:{
-        type:mongoose.Schema.Types.ObjectId,
-        required:true
-    },
-    total_liters_sold:{
-        type:Number,
-        required:true
-    },
-    total_amount_sold:{
-        type:Number,
-        required:true
-    },
-    created_at:{
-        type:Date,
-        default:Date.now
-    },
-    updated_at:{
-        type:Date,
-        default:Date.now
-    }
-})
-
-export default mongoose.model("FuelReport", fuelReportSchema)
+export default createModel({
+  table: "fuel_reports",
+  columns: [
+    "_id",
+    "station_id",
+    "fuel_type_id",
+    "total_liters_sold",
+    "total_amount_sold",
+    "created_at",
+    "updated_at",
+  ],
+});

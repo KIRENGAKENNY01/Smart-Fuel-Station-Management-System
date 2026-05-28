@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Station {
+  id         String        @id @default(cuid()) @map("_id")
+  name       String
+  latitude   Float
+  longitude  Float
+  status     StationStatus @default(ACTIVE)
+  manager_id String?
+  created_at DateTime      @default(now())
+  updated_at DateTime      @updatedAt
+
+  @@map("stations")
+}
+
+enum StationStatus {
+  ACTIVE
+  INACTIVE
+}

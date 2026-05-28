@@ -1,39 +1,4 @@
-import mongoose from "mongoose"
+import prisma from '../lib/prisma.js';
 
-const transactionSchema = new mongoose.Schema({
-    fuel_type_id:{
-        type:mongoose.Schema.Types.ObjectId,
-        required:true
-    },
-    station_id:{
-        type:mongoose.Schema.Types.ObjectId,
-        required:true
-    },
-    driver_id:{
-        type:mongoose.Schema.Types.ObjectId,
-        required:true
-    },
-    amount:{
-        type:Number,
-        required:true
-    },
-    liters:{
-        type:Number,
-        required:true
-    },
-    status:{
-        type:String,
-        enum:["PENDING","COMPLETED","FAILED"],
-        default:"PENDING"
-    },
-    created_at:{
-        type:Date,
-        default:Date.now
-    },
-    updated_at:{
-        type:Date,
-        default:Date.now
-    }
-})
-
-export default mongoose.model("Transaction",transactionSchema)
+export const Transaction = prisma.transaction;
+export default prisma.transaction;

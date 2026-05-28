@@ -1,0 +1,21 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model FuelReport {
+  id                 String   @id @default(cuid()) @map("_id")
+  station_id         String
+  fuel_type_id       String
+  total_liters_sold  Float
+  total_amount_sold  Float
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  @@map("fuel_reports")
+}

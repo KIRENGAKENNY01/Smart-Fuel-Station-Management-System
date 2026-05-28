@@ -4,13 +4,20 @@
   "main": "Server.js",
   "scripts": {
     "start": "node Server.js",
-    "dev": "nodemon Server.js"
+    "dev": "nodemon Server.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@smart-fuel/shared": "*",
+    "@prisma/client": "^5.22.0",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "mongoose": "^9.5.0"
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
   },
   "private": true,
   "type": "module"

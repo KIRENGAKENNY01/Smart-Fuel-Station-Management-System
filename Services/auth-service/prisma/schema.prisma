@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String         @id @default(cuid()) @map("_id")
+  full_name           String
+  email               String         @unique
+  password            String
+  role                Role           @default(DRIVER)
+  status              UserStatus     @default(ACTIVE)
+  station_id          String?
+  application_message String?
+  is_verified         Boolean        @default(false)
+  created_at          DateTime       @default(now())
+  updated_at          DateTime       @updatedAt
+  refresh_tokens      RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid()) @map("_id")
+  user_id    String
+  token      String    @unique
+  expires_at DateTime
+  revoked    Boolean   @default(false)
+  created_at DateTime  @default(now())
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  DRIVER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_APPROVAL
+  REJECTED
+}

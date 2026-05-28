@@ -3,7 +3,7 @@ import { z } from "zod";
 export const objectId = z
   .string()
   .trim()
-  .regex(/^[a-fA-F0-9]{24}$/, "Invalid id format");
+  .min(1, "Id is required");
 
 export const email = z
   .string()
