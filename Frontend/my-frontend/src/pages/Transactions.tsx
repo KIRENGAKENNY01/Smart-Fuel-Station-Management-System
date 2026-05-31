@@ -42,9 +42,13 @@ export default function Transactions() {
     fetchTx();
   }, []);
 
+  // Prisma returns `id`; resolve station name by matching against station.id
+  const stationName = (sid: string) =>
+    stations.find((s) => s.id === sid || s._id === sid)?.name || sid?.slice?.(-6) || sid;
+
   const columns = [
     { id: 'transactionId', label: 'ID', render: (v: string) => <span className="font-mono text-xs">#{String(v).slice(-8)}</span> },
-    { id: 'stationId', label: 'Station', render: (v: string) => stations.find((s) => s._id === v)?.name || v?.slice?.(-6) },
+    { id: 'stationId', label: 'Station', render: (v: string) => stationName(v) },
     { id: 'liters', label: 'Liters', render: (v: number) => `${v} L` },
     { id: 'totalAmount', label: 'Amount', render: (v: number) => `${v?.toLocaleString()} RWF` },
     { id: 'status', label: 'Status', render: (v: string) => <span className="text-xs font-bold uppercase">{v}</span> },
@@ -72,7 +76,7 @@ export default function Transactions() {
         <Filter className="w-5 h-5 text-text-muted" />
         <select className="glass-input" value={stationId} onChange={(e) => setStationId(e.target.value)}>
           <option value="">All stations</option>
-          {stations.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
+          {stations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         <input type="date" className="glass-input" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
         <input type="date" className="glass-input" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />

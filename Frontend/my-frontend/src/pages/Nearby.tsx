@@ -39,8 +39,12 @@ export default function Nearby() {
         ]);
 
         const enrich = async (data: any[]) => Promise.all(data.map(async (st: any) => {
-          const prices = await FuelService.getStationPrices(st.stationId || st._id).then(r => r.data.data).catch(() => []);
-          const address = await fetchAddress(st.latitude || st.location?.coordinates[1], st.longitude || st.location?.coordinates[0]);
+          // nearby returns `stationId`; getAll (Prisma) returns `id`
+          const sid = st.stationId || st.id || st._id;
+          const prices = await FuelService.getStationPrices(sid).then(r => r.data.data).catch(() => []);
+          const lat = st.latitude ?? st.location?.coordinates?.[1];
+          const lon = st.longitude ?? st.location?.coordinates?.[0];
+          const address = await fetchAddress(lat, lon);
           return { ...st, prices, addressInfo: address };
         }));
 

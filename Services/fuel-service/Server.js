@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import fuelRoutes from './src/routes/fuel.routes.js';
 import prisma from './src/lib/prisma.js';
+import { ensureDefaultFuelTypes } from './src/services/fuel.service.js';
 
 dotenv.config();
 
@@ -17,8 +18,9 @@ app.get('/health', (_req, res) => res.json({ status: 'Fuel Service is active' })
 const PORT = process.env.PORT || 5003;
 
 prisma.$connect()
-  .then(() => {
+  .then(async () => {
     console.log('Fuel Service connected to PostgreSQL via Prisma');
+    await ensureDefaultFuelTypes();
     app.listen(PORT, () => console.log(`Fuel Service running on port ${PORT}`));
   })
   .catch((err) => {

@@ -1,6 +1,6 @@
 import PageLayout from '../components/PageLayout';
 import ReceiptModal from '../components/ReceiptModal';
-import { Check, Download, Eye } from 'lucide-react';
+import { Check, Eye } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { TransactionService } from '../services/api';
 import ProCard from '../components/ProCard';
@@ -27,14 +27,24 @@ export default function Sales() {
 
   useEffect(() => { load(); }, [sid]);
 
-  const confirm = async (id: string) => {
+  // Prisma returns `id` on transactions; getStationSales returns raw Prisma rows
+  const getTxId = (t: any) => t.id || t._id;
+
+  const confirm = async (t: any) => {
+    const txId = getTxId(t);
     try {
-      await TransactionService.confirmPayment(id, localStorage.getItem('userEmail') || undefined);
+      await TransactionService.confirmPayment(txId, localStorage.getItem('userEmail') || undefined);
       load();
       alert('Payment confirmed. Driver notified and receipt sent.');
     } catch (e: unknown) {
       alert((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Confirm failed');
     }
+  };
+
+  const viewReceipt = async (t: any) => {
+    const txId = getTxId(t);
+    const r = await TransactionService.getReceipt(txId);
+    setReceipt(r.data.data);
   };
 
   if (!sid) {
@@ -78,42 +88,45 @@ export default function Sales() {
             </tr>
           </thead>
           <tbody>
-            {sales.map((t) => (
-              <tr key={t._id} className="border-b border-black/5">
-                <td className="p-3 font-mono text-xs">#{String(t._id).slice(-8)}</td>
-                <td className="p-3">{t.liters} L</td>
-                <td className="p-3 font-bold">{t.amount?.toLocaleString()} RWF</td>
-                <td className="p-3">
-                  <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${t.status === 'PENDING' ? 'bg-chart-highlight/20 text-chart-highlight' : 'bg-primary-500/20 text-primary-500'}`}>
-                    {t.status}
-                  </span>
-                </td>
-                <td className="p-3">{new Date(t.created_at).toLocaleString()}</td>
-                <td className="p-3 flex gap-1">
-                  {t.status === 'PENDING' && (
-                    <button
-                      type="button"
-                      title="Confirm payment"
-                      onClick={() => confirm(t._id)}
-                      className="px-3 py-1.5 rounded-lg bg-primary-500 text-primary-900 text-xs font-bold flex items-center gap-1"
-                    >
-                      <Check className="w-4 h-4" />
-                      Confirm
-                    </button>
-                  )}
-                  {t.status === 'COMPLETED' && (
-                    <>
-                      <span className="px-3 py-1.5 rounded-lg bg-primary-500/20 text-primary-500 text-xs font-bold uppercase">
-                        Completed
-                      </span>
-                      <button type="button" title="View receipt" onClick={async () => { const r = await TransactionService.getReceipt(t._id); setReceipt(r.data.data); }} className="p-2 rounded-lg hover:bg-black/5">
-                        <Eye className="w-4 h-4" />
+            {sales.map((t) => {
+              const txId = getTxId(t);
+              return (
+                <tr key={txId} className="border-b border-black/5">
+                  <td className="p-3 font-mono text-xs">#{String(txId).slice(-8)}</td>
+                  <td className="p-3">{t.liters} L</td>
+                  <td className="p-3 font-bold">{t.amount?.toLocaleString()} RWF</td>
+                  <td className="p-3">
+                    <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${t.status === 'PENDING' ? 'bg-chart-highlight/20 text-chart-highlight' : 'bg-primary-500/20 text-primary-500'}`}>
+                      {t.status}
+                    </span>
+                  </td>
+                  <td className="p-3">{new Date(t.created_at).toLocaleString()}</td>
+                  <td className="p-3 flex gap-1">
+                    {t.status === 'PENDING' && (
+                      <button
+                        type="button"
+                        title="Confirm payment"
+                        onClick={() => confirm(t)}
+                        className="px-3 py-1.5 rounded-lg bg-primary-500 text-primary-900 text-xs font-bold flex items-center gap-1"
+                      >
+                        <Check className="w-4 h-4" />
+                        Confirm
                       </button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
+                    )}
+                    {t.status === 'COMPLETED' && (
+                      <>
+                        <span className="px-3 py-1.5 rounded-lg bg-primary-500/20 text-primary-500 text-xs font-bold uppercase">
+                          Completed
+                        </span>
+                        <button type="button" title="View receipt" onClick={() => viewReceipt(t)} className="p-2 rounded-lg hover:bg-black/5">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

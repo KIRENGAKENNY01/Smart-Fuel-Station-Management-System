@@ -53,6 +53,7 @@ export const AuthService = {
 };
 
 export const FuelService = {
+  getTypes: () => api.get('/fuel/types'),
   getInventory: (stationId: string) => api.get(`/fuel/inventory/${stationId}`),
   getStationPrices: (stationId: string) => api.get(`/fuel/prices/${stationId}`),
   getPriceTrend: (stationId: string, fuelType: string, range = '7d') =>

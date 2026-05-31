@@ -5,8 +5,9 @@ import { NotificationService, TransactionService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import clsx from 'clsx';
 
+// Prisma returns `id` — notification shape from backend
 type Notification = {
-  _id: string;
+  id: string;
   type: string;
   message: string;
   is_read: boolean;
@@ -42,8 +43,10 @@ export default function Notifications() {
     setLoading(true);
     try {
       const res = await NotificationService.getAll();
-      const list = (res.data.data || []).map((n: Notification & { transaction_id?: { toString?: () => string } }) => ({
+      // Prisma returns `id` — normalize so the rest of the component uses `id`
+      const list = (res.data.data || []).map((n: any) => ({
         ...n,
+        id: n.id,
         transaction_id: n.transaction_id ? String(n.transaction_id) : undefined,
       }));
       setItems(list);
@@ -62,23 +65,24 @@ export default function Notifications() {
     fetchNotifications();
   }, [sid, role]);
 
+  // Transactions from getStationSales return `id` from Prisma
   const resolveTransactionId = (n: Notification): string | null => {
     if (n.transaction_id) return String(n.transaction_id);
     const short = shortIdFromMessage(n.message);
     if (!short) return null;
-    const match = stationTxns.find((t) => String(t._id).slice(-8).toLowerCase() === short);
-    return match ? String(match._id) : null;
+    const match = stationTxns.find((t) => String(t.id || t._id).slice(-8).toLowerCase() === short);
+    return match ? String(match.id || match._id) : null;
   };
 
   const getTransactionStatus = (n: Notification): string | null => {
     const txId = resolveTransactionId(n);
     if (!txId) return null;
-    return stationTxns.find((t) => String(t._id) === txId)?.status || null;
+    return stationTxns.find((t) => String(t.id || t._id) === txId)?.status || null;
   };
 
   const markRead = async (id: string) => {
     await NotificationService.markAsRead(id);
-    setItems((prev) => prev.map((n) => (n._id === id ? { ...n, is_read: true } : n)));
+    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
   };
 
   const confirmPayment = async (n: Notification) => {
@@ -87,10 +91,10 @@ export default function Notifications() {
       alert('Could not find this payment. Open Station Sales to confirm.');
       return;
     }
-    setConfirming(n._id);
+    setConfirming(n.id);
     try {
       await TransactionService.confirmPayment(txId);
-      await markRead(n._id);
+      await markRead(n.id);
       await fetchNotifications();
       alert('Payment confirmed. Driver notified and receipt sent.');
     } catch (err: unknown) {
@@ -138,7 +142,7 @@ export default function Notifications() {
 
             return (
               <li
-                key={n._id}
+                key={n.id}
                 className={clsx(
                   'glass-card p-4 flex gap-4 items-start',
                   !n.is_read && !isCompleted && 'ring-1 ring-primary-500/30',
@@ -169,17 +173,17 @@ export default function Notifications() {
                   {canConfirm && (
                     <button
                       type="button"
-                      disabled={confirming === n._id}
+                      disabled={confirming === n.id}
                       onClick={() => confirmPayment(n)}
                       className="px-4 py-2 bg-primary-500 text-primary-900 text-xs font-black uppercase rounded-lg hover:bg-primary-600 disabled:opacity-50 whitespace-nowrap"
                     >
-                      {confirming === n._id ? 'Confirming…' : 'Confirm payment'}
+                      {confirming === n.id ? 'Confirming…' : 'Confirm payment'}
                     </button>
                   )}
                   {!n.is_read && !isCompleted && (
                     <button
                       type="button"
-                      onClick={() => markRead(n._id)}
+                      onClick={() => markRead(n.id)}
                       className="p-2 rounded-lg hover:bg-black/5 text-xs text-text-muted"
                       title="Mark as read"
                     >

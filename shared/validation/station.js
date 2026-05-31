@@ -21,7 +21,7 @@ export const createStationSchema = z.object({
   name: z.string().trim().min(2, "Station name must be at least 2 characters").max(120),
   latitude,
   longitude,
-  manager_id: objectId,
+  manager_id: objectId.optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
 

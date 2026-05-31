@@ -10,14 +10,19 @@ export default function Inventory() {
   const { stationId } = useAuth();
   const sid = stationId || localStorage.getItem('stationId') || '';
   const [items, setItems] = useState<any[]>([]);
+  const [fuelTypes, setFuelTypes] = useState<any[]>([]);
   const [supplyForm, setSupplyForm] = useState({ fuel_type_id: '', liters_added: '' });
   const [priceForm, setPriceForm] = useState({ fuel_type_id: '', price: '' });
   const [formError, setFormError] = useState('');
 
   const load = async () => {
     if (!sid) return;
-    const res = await FuelService.getInventory(sid);
+    const [res, typesRes] = await Promise.all([
+      FuelService.getInventory(sid),
+      FuelService.getTypes(),
+    ]);
     setItems(res.data.data || []);
+    setFuelTypes(typesRes.data.data || []);
   };
 
   useEffect(() => {
@@ -28,10 +33,7 @@ export default function Inventory() {
     e.preventDefault();
     setFormError('');
     const check = validateForm(fuelSupplySchema, supplyForm);
-    if (!check.success) {
-      setFormError(check.error);
-      return;
-    }
+    if (!check.success) { setFormError(check.error); return; }
     try {
       await FuelService.addSupply({
         station_id: sid,
@@ -42,8 +44,7 @@ export default function Inventory() {
       load();
     } catch (err: unknown) {
       setFormError(
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          'Failed to add stock'
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to add stock'
       );
     }
   };
@@ -52,10 +53,7 @@ export default function Inventory() {
     e.preventDefault();
     setFormError('');
     const check = validateForm(fuelPriceUpdateSchema, priceForm);
-    if (!check.success) {
-      setFormError(check.error);
-      return;
-    }
+    if (!check.success) { setFormError(check.error); return; }
     try {
       await FuelService.updatePrice({
         station_id: sid,
@@ -65,11 +63,17 @@ export default function Inventory() {
       load();
     } catch (err: unknown) {
       setFormError(
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          'Failed to update price'
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to update price'
       );
     }
   };
+
+  // Prisma returns `id` on inventory items; fuel_type is an included relation with `id` and `name`
+  const getFuelTypeId = (inv: any) => inv.fuel_type?.id || inv.fuel_type_id;
+  const getFuelTypeLabel = (inv: any) => fuelTypeLabel(inv.fuel_type?.name || inv.fuel_type_id);
+  const fuelTypeOptions = fuelTypes.length
+    ? fuelTypes
+    : items.map((i) => ({ id: getFuelTypeId(i), name: getFuelTypeLabel(i) }));
 
   return (
     <PageLayout title="Fuel Inventory" description="Add stock and update prices">
@@ -80,9 +84,9 @@ export default function Inventory() {
             : 50;
           const low = inv.available_liters < (inv.low_stock_threshold || 500);
           return (
-            <div key={inv._id} className={`glass-card p-6 ${low ? 'border-danger/30' : ''}`}>
+            <div key={inv.id} className={`glass-card p-6 ${low ? 'border-danger/30' : ''}`}>
               <div className="flex justify-between mb-4">
-                <h3 className="font-bold">{fuelTypeLabel(inv.fuel_type_id)}</h3>
+                <h3 className="font-bold">{getFuelTypeLabel(inv)}</h3>
                 {low ? (
                   <AlertTriangle className="w-5 h-5 text-danger" />
                 ) : (
@@ -115,9 +119,9 @@ export default function Inventory() {
             required
           >
             <option value="">Fuel type</option>
-            {items.map((i) => (
-              <option key={i._id} value={i.fuel_type_id?._id || i.fuel_type_id}>
-                {fuelTypeLabel(i.fuel_type_id)}
+            {fuelTypeOptions.map((type) => (
+              <option key={type.id} value={type.id}>
+                {fuelTypeLabel(type.name)}
               </option>
             ))}
           </select>
@@ -142,9 +146,9 @@ export default function Inventory() {
             required
           >
             <option value="">Fuel type</option>
-            {items.map((i) => (
-              <option key={i._id} value={i.fuel_type_id?._id || i.fuel_type_id}>
-                {fuelTypeLabel(i.fuel_type_id)}
+            {fuelTypeOptions.map((type) => (
+              <option key={type.id} value={type.id}>
+                {fuelTypeLabel(type.name)}
               </option>
             ))}
           </select>

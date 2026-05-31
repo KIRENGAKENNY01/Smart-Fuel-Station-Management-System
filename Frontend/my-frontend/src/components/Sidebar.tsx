@@ -12,6 +12,7 @@ const roleLinks = {
     { name: 'Stations', path: '/stations', icon: Map },
     { name: 'Users', path: '/staff', icon: Users },
     { name: 'Transactions', path: '/transactions', icon: CreditCard },
+    { name: 'Notifications', path: '/notifications', icon: Bell },
     { name: 'Alerts', path: '/alerts', icon: AlertTriangle },
     { name: 'Profile', path: '/profile', icon: User },
   ],

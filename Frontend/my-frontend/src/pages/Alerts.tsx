@@ -25,7 +25,8 @@ export default function Alerts() {
       ) : (
         <ul className="space-y-3">
           {alerts.map((a) => (
-            <li key={a._id} className="glass-card p-4 flex gap-4 items-start">
+            // Prisma returns `id` — no more `_id`
+            <li key={a.id} className="glass-card p-4 flex gap-4 items-start">
               <AlertTriangle className="w-5 h-5 text-danger shrink-0 mt-0.5" />
               <div>
                 <span className="text-[10px] font-bold uppercase text-danger">{a.type.replace(/_/g, ' ')}</span>

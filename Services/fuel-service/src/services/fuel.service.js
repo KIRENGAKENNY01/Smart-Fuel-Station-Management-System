@@ -4,6 +4,21 @@ import axios from 'axios';
 const NOTIFICATION_SERVICE = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:5006';
 const AUTH_SERVICE = process.env.AUTH_SERVICE_URL || 'http://localhost:5001';
 const STATION_SERVICE = process.env.STATION_SERVICE_URL || 'http://localhost:5002';
+const DEFAULT_FUEL_TYPES = ['PETROL', 'DIESEL'];
+
+export const ensureDefaultFuelTypes = async () => {
+  const fuelTypes = [];
+
+  for (const name of DEFAULT_FUEL_TYPES) {
+    let fuelType = await prisma.fuelType.findFirst({ where: { name } });
+    if (!fuelType) {
+      fuelType = await prisma.fuelType.create({ data: { name } });
+    }
+    fuelTypes.push(fuelType);
+  }
+
+  return fuelTypes;
+};
 
 const sendAlert = async (userId, type, message) => {
   try {
@@ -85,18 +100,39 @@ export const setStockLevel = async (stationId, fuelTypeId, liters) => {
   const current = await prisma.fuelInventory.findUnique({
     where: { station_id_fuel_type_id: { station_id: stationId, fuel_type_id: fuelTypeId } },
   });
-  if (!current) throw new Error('Inventory record not found');
-  const previousLiters = current.available_liters;
+  const previousLiters = current?.available_liters ?? 0;
 
-  const inventory = await prisma.fuelInventory.update({
+  const inventory = await prisma.fuelInventory.upsert({
     where: { station_id_fuel_type_id: { station_id: stationId, fuel_type_id: fuelTypeId } },
-    data: { available_liters: liters },
+    create: {
+      station_id: stationId,
+      fuel_type_id: fuelTypeId,
+      available_liters: liters,
+      price_per_liter: 0,
+    },
+    update: { available_liters: liters },
   });
   await checkStockAlerts(inventory, previousLiters);
   return inventory;
 };
 
 export const logSupply = async (data) => {
+  const inventory = await prisma.fuelInventory.upsert({
+    where: {
+      station_id_fuel_type_id: {
+        station_id: data.station_id,
+        fuel_type_id: data.fuel_type_id,
+      },
+    },
+    create: {
+      station_id: data.station_id,
+      fuel_type_id: data.fuel_type_id,
+      available_liters: 0,
+      price_per_liter: data.price_per_liter || 0,
+    },
+    update: {},
+  });
+
   const supply = await prisma.supply.create({
     data: {
       station_id: data.station_id,
@@ -105,12 +141,15 @@ export const logSupply = async (data) => {
       cost_price: data.cost_price || null,
     },
   });
-  await updateStock(data.station_id, data.fuel_type_id, data.liters_added, 'add');
+  await updateStock(inventory.station_id, inventory.fuel_type_id, data.liters_added, 'add');
   return supply;
 };
 
 export const getAllFuelTypes = async () => {
-  return prisma.fuelType.findMany();
+  await ensureDefaultFuelTypes();
+  return prisma.fuelType.findMany({
+    orderBy: { name: 'asc' },
+  });
 };
 
 export const getPrices = async () => {
@@ -139,11 +178,16 @@ export const getPricesByStation = async (stationId) => {
 };
 
 export const updatePrice = async (stationId, fuelTypeId, newPrice) => {
-  const inventory = await prisma.fuelInventory.update({
+  const inventory = await prisma.fuelInventory.upsert({
     where: { station_id_fuel_type_id: { station_id: stationId, fuel_type_id: fuelTypeId } },
-    data: { price_per_liter: newPrice },
+    create: {
+      station_id: stationId,
+      fuel_type_id: fuelTypeId,
+      available_liters: 0,
+      price_per_liter: newPrice,
+    },
+    update: { price_per_liter: newPrice },
   });
-  if (!inventory) throw new Error('Inventory record not found');
   return inventory;
 };
 

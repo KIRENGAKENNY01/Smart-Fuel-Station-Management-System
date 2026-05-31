@@ -13,10 +13,7 @@ export const createStation = async (req, res) => {
 export const getSignupOptions = async (req, res) => {
   try {
     const stations = await StationService.getAllStations();
-    const options = stations.map((s) => {
-      const doc = s.toJSON ? s.toJSON() : s;
-      return { _id: doc._id, name: doc.name };
-    });
+    const options = stations.map((s) => ({ _id: s.id, name: s.name }));
     response(res, 200, "Stations available for manager registration", options);
   } catch (err) {
     response(res, 500, err.message);

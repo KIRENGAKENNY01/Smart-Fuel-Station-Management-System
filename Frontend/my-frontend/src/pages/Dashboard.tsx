@@ -1,11 +1,11 @@
-import { DollarSign, Droplet, CreditCard, MapPin, Map as MapIcon, TrendingUp, Bell, Activity, Zap, Download } from 'lucide-react';
+import { DollarSign, Droplet, CreditCard, MapPin, Bell, Activity, Zap, Download } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ProCard from '../components/ProCard';
 import Sidebar from '../components/Sidebar';
-import { stats as mockStats, nearbyStations as mockNearby, staffPerformance as mockStaff } from '../data/mockData';
+import { nearbyStations as mockNearby } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
-import { FuelService, StationService, TransactionService, NotificationService, ReportService } from '../services/api';
+import { AuthService, FuelService, StationService, TransactionService, NotificationService, ReportService } from '../services/api';
 import { formatRwf, formatLiters, fuelTypeLabel } from '../utils/format';
 
 export default function Dashboard() {
@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [spentThisMonth, setSpentThisMonth] = useState('0 RWF');
   const [analytics, setAnalytics] = useState<any>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [pendingManagers, setPendingManagers] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -45,8 +46,12 @@ export default function Dashboard() {
         }
 
         if (role === 'ADMIN') {
-          const statsRes = await TransactionService.getAdminStats('daily');
+          const [statsRes, pendingRes] = await Promise.all([
+            TransactionService.getAdminStats('daily'),
+            AuthService.getPendingManagers(),
+          ]);
           setAdminStats(statsRes.data.data);
+          setPendingManagers(pendingRes.data.data || []);
           const notifRes = await NotificationService.getAll();
           setNotifications(notifRes.data.data || []);
         }
@@ -178,6 +183,20 @@ export default function Dashboard() {
                   icon={MapPin}
                   variant="accent"
                 />
+                <ProCard
+                  title="Manager Approvals"
+                  value={pendingManagers.length}
+                  subtitle="Pending station assignments"
+                  icon={Bell}
+                  variant={pendingManagers.length > 0 ? 'danger' : 'secondary'}
+                >
+                  <Link
+                    to="/staff"
+                    className="block w-full mt-4 py-3 text-center bg-primary-500 text-primary-900 font-bold rounded-xl"
+                  >
+                    Review applications
+                  </Link>
+                </ProCard>
               </div>
             </section>
           )}

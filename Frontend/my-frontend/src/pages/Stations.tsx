@@ -38,11 +38,11 @@ export default function Stations() {
     const { manager_id, ...stationData } = check.data;
     try {
       if (editing) {
-        await StationService.update(editing._id, stationData);
-        if (manager_id) await StationService.assignManager(editing._id, manager_id);
+        await StationService.update(editing.id, stationData);
+        if (manager_id) await StationService.assignManager(editing.id, manager_id);
       } else {
         const created = await StationService.create(stationData);
-        const newId = created.data.data?._id || created.data._id;
+        const newId = created.data.data?.id || created.data.data?._id;
         if (manager_id && newId) await StationService.assignManager(newId, manager_id);
       }
       setShowForm(false);
@@ -57,16 +57,16 @@ export default function Stations() {
     { id: 'name', label: 'Station', render: (v: string) => <span className="font-bold">{v}</span> },
     { id: 'status', label: 'Status', render: (v: string) => <span className="text-xs font-bold uppercase">{v || 'ACTIVE'}</span> },
     {
-      id: 'location',
+      id: 'latitude',
       label: 'Coordinates',
-      render: (_: unknown, row: { latitude?: number; longitude?: number }) => (
+      render: (lat: number, row: { latitude?: number; longitude?: number }) => (
         <span className="font-mono text-xs opacity-70">
           {row.latitude?.toFixed(4)}, {row.longitude?.toFixed(4)}
         </span>
       ),
     },
     {
-      id: '_id',
+      id: 'id',
       label: 'Actions',
       render: (id: string, row: any) => (
         <div className="flex gap-2">
@@ -92,7 +92,7 @@ export default function Stations() {
           <input className="glass-input" placeholder="Station name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <select className="glass-input" value={form.manager_id} onChange={(e) => setForm({ ...form, manager_id: e.target.value })}>
             <option value="">No manager assigned (assign later)</option>
-            {managers.map((m) => <option key={m._id} value={m._id}>{m.full_name}</option>)}
+            {managers.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
           </select>
           <input className="glass-input" placeholder="Latitude" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} required />
           <input className="glass-input" placeholder="Longitude" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} required />

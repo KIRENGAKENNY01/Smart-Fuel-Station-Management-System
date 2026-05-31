@@ -7,10 +7,27 @@ import axios from 'axios';
 
 const NOTIFICATION_SERVICE = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:5006';
 
+// Explicit select that excludes password — compatible with all Prisma 5.x versions
+const USER_SELECT = {
+  id: true,
+  full_name: true,
+  email: true,
+  role: true,
+  status: true,
+  station_id: true,
+  application_message: true,
+  is_verified: true,
+  created_at: true,
+  updated_at: true,
+};
+
 const notifyAdmins = async (message) => {
   try {
-    const res = await axios.get('http://localhost:5001/api/auth/users/internal/admins');
-    const admins = res.data?.data || [];
+    const admins = await prisma.user.findMany({
+      where: { role: 'ADMIN', status: 'ACTIVE' },
+      select: { id: true },
+    });
+
     await Promise.all(
       admins.map((admin) =>
         axios.post(`${NOTIFICATION_SERVICE}/api/notifications/internal`, {
@@ -129,11 +146,10 @@ export const logout = async (token) => {
 };
 
 export const getAllUsers = async () => {
-  const users = await prisma.user.findMany({
+  return prisma.user.findMany({
     orderBy: { created_at: 'desc' },
-    omit: { password: true },
+    select: USER_SELECT,
   });
-  return users;
 };
 
 export const createUserByAdmin = async (data) => {
@@ -218,7 +234,7 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
 export const getUsersByRole = async (role) => {
   return prisma.user.findMany({
     where: { role, status: 'ACTIVE' },
-    omit: { password: true },
+    select: USER_SELECT,
   });
 };
 
@@ -226,7 +242,7 @@ export const getPendingManagers = async () => {
   return prisma.user.findMany({
     where: { role: 'MANAGER', status: 'PENDING_APPROVAL' },
     orderBy: { created_at: 'desc' },
-    omit: { password: true },
+    select: USER_SELECT,
   });
 };
 

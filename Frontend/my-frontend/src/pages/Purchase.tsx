@@ -25,9 +25,9 @@ type EmbeddedFuel = {
 };
 
 type StationOption = {
-  _id?: string;
-  id?: string;
-  stationId?: string;
+  _id?: string;  // legacy fallback
+  id?: string;   // Prisma
+  stationId?: string; // nearby endpoint
   name: string;
   fuels?: EmbeddedFuel[];
 };
@@ -35,8 +35,10 @@ type StationOption = {
 const toId = (value: unknown): string => {
   if (value == null) return '';
   if (typeof value === 'string') return value;
-  if (typeof value === 'object' && '_id' in value) {
-    return String((value as { _id: unknown })._id);
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    if ('id' in obj) return String(obj.id);
+    if ('_id' in obj) return String(obj._id);
   }
   return String(value);
 };

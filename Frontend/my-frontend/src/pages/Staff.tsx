@@ -9,6 +9,7 @@ export default function Staff() {
   const [stations, setStations] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [approveStationIds, setApproveStationIds] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     full_name: '',
     email: '',
@@ -27,11 +28,21 @@ export default function Staff() {
     setStations(s.data.data || []);
   };
 
-  const stationName = (id: string) => stations.find((s: any) => s._id === id)?.name || id?.slice?.(-6) || 'Unknown';
+  const stationName = (id: string) => stations.find((s: any) => s.id === id || s._id === id)?.name || id?.slice?.(-6) || 'Unknown';
 
   const handleApprove = async (userId: string, requestedStationId: string) => {
+    const stationToAssign = approveStationIds[userId] || requestedStationId;
+    if (!stationToAssign) {
+      alert('Please select a station to assign to this manager before approving.');
+      return;
+    }
     try {
-      await AuthService.approveManager(userId, requestedStationId);
+      await AuthService.approveManager(userId, stationToAssign);
+      setApproveStationIds((prev) => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
       load();
     } catch (err: unknown) {
       alert((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Approval failed');
@@ -63,7 +74,7 @@ export default function Staff() {
     e.preventDefault();
     try {
       if (editing) {
-        await AuthService.updateUser(editing._id, {
+        await AuthService.updateUser(editing.id, {
           full_name: form.full_name,
           email: form.email,
           role: form.role,
@@ -105,7 +116,7 @@ export default function Staff() {
           <h3 className="font-bold text-lg mb-4">Pending manager applications</h3>
           <div className="space-y-4">
             {pending.map((app) => (
-              <div key={app._id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-black/5 dark:bg-white/5">
+              <div key={app.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-black/5 dark:bg-white/5">
                 <div>
                   <p className="font-bold">{app.full_name}</p>
                   <p className="text-sm text-text-muted">{app.email}</p>
@@ -117,16 +128,31 @@ export default function Staff() {
                   )}
                 </div>
                 <div className="flex gap-2 shrink-0">
+                  <select
+                    className="glass-input min-w-48 text-sm"
+                    value={approveStationIds[app.id] ?? app.station_id ?? ''}
+                    onChange={(e) =>
+                      setApproveStationIds((prev) => ({ ...prev, [app.id]: e.target.value }))
+                    }
+                    aria-label={`Station assignment for ${app.full_name}`}
+                  >
+                    <option value="">Choose station</option>
+                    {stations.map((station: any) => (
+                      <option key={station.id || station._id} value={station.id || station._id}>
+                        {station.name}
+                      </option>
+                    ))}
+                  </select>
                   <button
                     type="button"
-                    onClick={() => handleApprove(app._id, app.station_id)}
+                    onClick={() => handleApprove(app.id, app.station_id)}
                     className="px-4 py-2 bg-primary-500 text-primary-900 font-bold rounded-lg text-sm"
                   >
                     Approve
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleReject(app._id)}
+                    onClick={() => handleReject(app.id)}
                     className="px-4 py-2 border border-danger/30 text-danger font-bold rounded-lg text-sm"
                   >
                     Reject
@@ -174,7 +200,7 @@ export default function Staff() {
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u._id} className="border-b border-black/5">
+              <tr key={u.id} className="border-b border-black/5">
                 <td className="p-3 font-medium">{u.full_name}</td>
                 <td className="p-3 text-text-muted">{u.email}</td>
                 <td className="p-3">{u.role}</td>
@@ -190,12 +216,12 @@ export default function Staff() {
                 <td className="p-3 flex gap-2">
                   <button type="button" className="text-primary-500 font-medium" onClick={() => { setEditing(u); setForm({ full_name: u.full_name, email: u.email, password: '', role: u.role }); setShowForm(true); }}>Edit</button>
                   {u.status !== 'SUSPENDED' && (
-                    <button type="button" className="text-danger font-medium" onClick={async () => { await AuthService.suspendUser(u._id); load(); }}>Suspend</button>
+                    <button type="button" className="text-danger font-medium" onClick={async () => { await AuthService.suspendUser(u.id); load(); }}>Suspend</button>
                   )}
                   {u.status === 'SUSPENDED' && (
-                    <button type="button" className="text-chart-highlight font-medium" onClick={async () => { await AuthService.unsuspendUser(u._id); load(); }}>Unsuspend</button>
+                    <button type="button" className="text-chart-highlight font-medium" onClick={async () => { await AuthService.unsuspendUser(u.id); load(); }}>Unsuspend</button>
                   )}
-                  <button type="button" className="text-text-muted" onClick={async () => { if (confirm('Delete user?')) { await AuthService.deleteUser(u._id); load(); } }}>Delete</button>
+                  <button type="button" className="text-text-muted" onClick={async () => { if (confirm('Delete user?')) { await AuthService.deleteUser(u.id); load(); } }}>Delete</button>
                 </td>
               </tr>
             ))}
